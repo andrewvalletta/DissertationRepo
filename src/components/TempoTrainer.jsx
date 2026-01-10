@@ -67,8 +67,8 @@ class TempoTrainer extends Component {
     };
 
     startGame = () => {
-        const tempoBpm = BPM_OPTIONS[Math.floor(Math.random() * BPM_OPTIONS.length)];
-        const timeSignature = TIME_SIGNATURES[Math.floor(Math.random() * TIME_SIGNATURES.length)];
+        const tempoBpm = this.getNextBpm();
+        const timeSignature = this.getNextTimeSignature();
 
         this.setState({
             isStarted: true,
@@ -138,6 +138,28 @@ class TempoTrainer extends Component {
         this.setState(prev => ({
             questions: prev.questions + 1
         }), this.startGame);
+    };
+
+    getNextBpm = () => {
+        const available = BPM_OPTIONS.filter((_, i) => this.state.bpmEnabled[i]);
+
+        // Safeguard against no options selected
+        if (available.length === 0) {
+            return BPM_OPTIONS[Math.floor(Math.random() * BPM_OPTIONS.length)];
+        }
+
+        return available[Math.floor(Math.random() * available.length)];
+    };
+
+    getNextTimeSignature = () => {
+        const available = TIME_SIGNATURES.filter((_, i) => this.state.timeSignatureEnabled[i]);
+
+        // Safeguard against no options selected
+        if (available.length === 0) {
+            return TIME_SIGNATURES[Math.floor(Math.random() * TIME_SIGNATURES.length)];
+        }
+
+        return available[Math.floor(Math.random() * available.length)];
     };
 
     render() {
