@@ -6,6 +6,7 @@ import { pink, blue } from '@mui/material/colors';
 import TopMenu from './components/TopMenu';
 import TonePlayer from './components/TonePlayer';
 import PitchTrainer from './components/PitchTrainer';
+import TempoTrainer from './components/TempoTrainer';
 
 // import { AuthProvider } from './firebase/AuthContext';
 import logo from './logo.svg';
@@ -49,6 +50,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/Tone" element={<TonePlayer />} />
                 <Route path="/Pitch" element={<PitchTrainer />} />
+                <Route path="/Tempo" element={<TempoTrainer />} />
               </Routes>
             </div>
           </div>

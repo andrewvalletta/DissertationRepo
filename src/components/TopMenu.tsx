@@ -25,6 +25,9 @@ const TopMenu: React.FC = () => {
                         <Button color="inherit" component={Link} to="/pitch">
                             Pitch
                         </Button>
+                        <Button color="inherit" component={Link} to="/tempo">
+                            Tempo
+                        </Button>
                     </Box>
                 </Toolbar>
             </AppBar>
