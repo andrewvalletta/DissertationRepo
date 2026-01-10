@@ -1,12 +1,26 @@
-import React, { Component } from "react";
+import React, { Component } from 'react';
+import PropTypes from 'prop-types';
 import {
-    Grid,
     Button,
-    Typography
+    Checkbox,
+    FormControl,
+    FormControlLabel,
+    FormGroup,
+    FormLabel,
+    Grid,
+    MenuItem,
+    Select,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
+    Typography,
 } from '@mui/material';
 
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import StopIcon from '@mui/icons-material/Stop';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 
 const BPM_OPTIONS = [60, 80, 100, 120, 140, 160];
@@ -17,6 +31,9 @@ class TempoTrainer extends Component {
         super(props);
 
         this.state = {
+            bpmEnabled: BPM_OPTIONS.map(() => true),
+            timeSignatureEnabled: TIME_SIGNATURES.map(() => true),
+
             isStarted: false,
             tempoBpm: null,
             timeSignature: null,
@@ -36,6 +53,18 @@ class TempoTrainer extends Component {
 
         this.audioCtx = new AudioContext();
     }
+
+    handleBpmToggle = (bpm) => (event) => {
+        const bpmEnabled = [...this.state.bpmEnabled];
+        bpmEnabled[BPM_OPTIONS.indexOf(bpm)] = event.target.checked;
+        this.setState({ bpmEnabled });
+    };
+
+    handleTimeSignatureToggle = (ts) => (event) => {
+        const timeSignatureEnabled = [...this.state.timeSignatureEnabled];
+        timeSignatureEnabled[TIME_SIGNATURES.indexOf(ts)] = event.target.checked;
+        this.setState({ timeSignatureEnabled });
+    };
 
     startGame = () => {
         const tempoBpm = BPM_OPTIONS[Math.floor(Math.random() * BPM_OPTIONS.length)];
@@ -118,8 +147,50 @@ class TempoTrainer extends Component {
             <Grid container spacing={4} direction="column" alignItems="center" style={{ minHeight: '90vh' }}>
                 <Grid item>
                     <h1>Tempo Recognition Practice</h1>
-                    <h2>{!isStarted ? 'Start the exercise' : 'Listen and identify tempo & time signature'}</h2>
+                    <h2>{!isStarted ? 'Customise the training' : 'Listen and identify tempo & time signature'}</h2>
                 </Grid>
+
+
+
+                {!isStarted && (
+                    <>
+                        <Grid item>
+                            <FormLabel component="legend">Choose the BPMs (Tempos)</FormLabel>
+                            <FormGroup row>
+                                {BPM_OPTIONS.map((bpm, i) => (
+                                    <FormControlLabel
+                                        key={bpm}
+                                        control={
+                                            <Checkbox
+                                                checked={this.state.bpmEnabled[i]}
+                                                onChange={this.handleBpmToggle(bpm)}
+                                            />
+                                        }
+                                        label={bpm}
+                                    />
+                                ))}
+                            </FormGroup>
+                        </Grid>
+
+                        <Grid item>
+                            <FormLabel component="legend">Choose the Time Signatures</FormLabel>
+                            <FormGroup row>
+                                {TIME_SIGNATURES.map((ts, i) => (
+                                    <FormControlLabel
+                                        key={ts}
+                                        control={
+                                            <Checkbox
+                                                checked={this.state.timeSignatureEnabled[i]}
+                                                onChange={this.handleTimeSignatureToggle(ts)}
+                                            />
+                                        }
+                                        label={ts}
+                                    />
+                                ))}
+                            </FormGroup>
+                        </Grid>
+                    </>
+                )}
 
                 {isStarted && (
                     <>
