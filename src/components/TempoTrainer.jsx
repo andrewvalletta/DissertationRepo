@@ -42,6 +42,7 @@ class TempoTrainer extends Component {
             selectedTimeSignature: null,
 
             gameStartTime: 0,
+            isCorrect: false,
             lastAnswer: -1,
 
             questions: 0,
@@ -76,6 +77,7 @@ class TempoTrainer extends Component {
             timeSignature,
             selectedBpm: null,
             selectedTimeSignature: null,
+            isCorrect: false,
             lastAnswer: -1,
             gameStartTime: performance.now(),
         }, this.playMetronome);
@@ -111,11 +113,23 @@ class TempoTrainer extends Component {
     };
 
     evaluateAnswer = () => {
-        const { selectedBpm, selectedTimeSignature, tempoBpm, timeSignature, lastAnswer } = this.state;
+        const {
+            selectedBpm,
+            selectedTimeSignature,
+            tempoBpm,
+            timeSignature,
+            isCorrect
+        } = this.state;
 
-        if (!selectedBpm || !selectedTimeSignature || lastAnswer !== -1) {
+        // Only evaluate if both selections have been made
+        if (!selectedBpm || !selectedTimeSignature) {
             return;
         };
+
+        // Prevent re-evaluation if already correct
+        if (this.state.isCorrect) {
+            return;
+        }
 
         const now = performance.now();
 
@@ -125,16 +139,23 @@ class TempoTrainer extends Component {
 
         if (selectedBpm === tempoBpm && selectedTimeSignature === timeSignature) {
             this.setState(prev => ({
+                isCorrect: true,
                 lastAnswer: 1,
                 correct: prev.correct + 1,
                 totalResponseTime: prev.totalResponseTime + (now - prev.gameStartTime)
             }));
         } else {
-            this.setState({ lastAnswer: 0 });
+            this.setState({
+                lastAnswer: 0,
+            });
         }
     };
 
     nextQuestion = () => {
+        if (!this.state.isCorrect) {
+            this.setState(prev => ({ skips: prev.skips + 1 }));
+        }
+
         this.setState(prev => ({
             questions: prev.questions + 1
         }), this.startGame);
