@@ -36,7 +36,7 @@ function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
                 Choose the Tempos (BPMs) and Time Signatures
             </FormLabel>
 
-            <FormGroup row>
+            <FormGroup row sx={{justifyContent: 'center'}}>
                 {BPMS.map((bpm, i) => (
                     <FormControlLabel
                         key={bpm}
@@ -52,7 +52,7 @@ function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
                 ))}
             </FormGroup>
 
-            <FormGroup row>
+            <FormGroup row sx={{justifyContent: 'center'}}>
                 {TIME_SIGNATURES.map((ts, i) => (
                     <FormControlLabel
                         key={ts}

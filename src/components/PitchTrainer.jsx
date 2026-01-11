@@ -36,7 +36,7 @@ function TonesCheckboxes({ tones, handleSelection }) {
             <FormLabel component="legend">
                 Choose the notes to test, you can change anytime
             </FormLabel>
-            <FormGroup row>
+            <FormGroup row sx={{justifyContent: 'center'}}>
                 {TONES.map((t, i) => (
                     <FormControlLabel
                         key={t}
