@@ -185,7 +185,8 @@ function TempoTrainerStatistics({ rows }) {
         <Table className="tempo-trainer-stat-table">
             <TableHead>
                 <TableRow>
-                    <TableCell>Tempos Tested</TableCell>
+                    <TableCell>BPM</TableCell>
+                    <TableCell>Time Signature</TableCell>
                     <TableCell align="right">Questions</TableCell>
                     <TableCell align="right">Skipped</TableCell>
                     <TableCell align="right">Attempts</TableCell>
@@ -196,7 +197,8 @@ function TempoTrainerStatistics({ rows }) {
             <TableBody>
                 {rows.map((row) => (
                     <TableRow key={row.id}>
-                        <TableCell>{row.note}</TableCell>
+                        <TableCell>{row.bpm}</TableCell>
+                        <TableCell>{row.ts}</TableCell>
                         <TableCell align="right">{row.numQ}</TableCell>
                         <TableCell align="right">{row.numS}</TableCell>
                         <TableCell align="right">{row.numA}</TableCell>
@@ -244,11 +246,13 @@ class TempoTrainer extends Component {
 
             isFirstGame: true,
 
-            statQuestions: Array(12).fill(0), // how many questions shown for a tone
-            statSkips: Array(12).fill(0), // how many skipped questions shown for a tone
-            statTries: Array(12).fill(0), // how many tries did user made for a tone
-            statTriesTime: Array(12).fill(0), // how long in total for user to decide a tone, used to calc average time
-            statCorrect: Array(12).fill(0), // how many correct ans in first selection, used to calc the accuracy
+
+            stats: {},
+            // statQuestions: Array(12).fill(0), // how many questions shown for a tone
+            // statSkips: Array(12).fill(0), // how many skipped questions shown for a tone
+            // statTries: Array(12).fill(0), // how many tries did user made for a tone
+            // statTriesTime: Array(12).fill(0), // how long in total for user to decide a tone, used to calc average time
+            // statCorrect: Array(12).fill(0), // how many correct ans in first selection, used to calc the accuracy
         };
 
         this.NUM_BPM_CHOICES_LIST = BPMS.map((_, i) => (
@@ -292,76 +296,147 @@ class TempoTrainer extends Component {
 
         const timeSignatureAnswers = this.getShuffledTimeSignatures(this.state.timeSignatures, timeSignature, this.state.numTimeSignatureChoices);
 
-        this.setState({
-            gameStartTime: performance.now(),
-            isStarted: true,
-            bpmPlaying: bpm,
-            timeSignaturePlaying: timeSignature,
-            selectedBpm: null,
-            selectedTimeSignature: null,
-            isCorrect: false,
-            lastAnswer: -1,
-            bpmAnswers,
-            timeSignatureAnswers,
+        const statsKey = `${bpm}|${timeSignature}`;
+
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+
+            if (!stats[statsKey]) {
+                stats[statsKey] = {
+                    bpm,
+                    timeSignature,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            stats[statsKey].questions++;
+
+            return {
+                stats,
+                gameStartTime: performance.now(),
+                isStarted: true,
+                bpmPlaying: bpm,
+                timeSignaturePlaying: timeSignature,
+                selectedBpm: null,
+                selectedTimeSignature: null,
+                isCorrect: false,
+                lastAnswer: -1,
+                bpmAnswers,
+                timeSignatureAnswers,
+            };
         }, this.handlePlayMelody);
     };
 
     handleGameStop = () => {
-        const idxBpm = BPMS.indexOf(this.state.bpmPlaying);
-        const idxTs = TIME_SIGNATURES.indexOf(this.state.timeSignaturePlaying);
+        // Current stats key e.g. "60|4/4"
+        const statsKey = this.getStatsKey();
 
-        const statQuestions = [...this.state.statQuestions];
-        const statSkips = [...this.state.statSkips];
+        this.setState(prev => {
+            const stats = { ...prev.stats };
 
-        statQuestions[idxBpm]++;
+            // Safeguard in case stats entry does not exist
+            if (!stats[statsKey]) {
+                stats[statsKey] = {
+                    bpm: prev.bpmPlaying,
+                    timeSignature: prev.timeSignaturePlaying,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
 
-        if (!this.state.isCorrect) {
-            statSkips[idxBpm]++;
-        }
+            // Increment skips if the previous question was not answered correctly
+            if (!prev.isCorrect) {
+                stats[statsKey].skips++;
+            }
 
-        this.setState({
-            isStarted: false,
-            isCorrect: false,
-            isFirstGame: false,
-            lastAnswer: -1,
-            gameStartTime: 0,
-            statQuestions,
-            statSkips,
+            return {
+                stats,
+                isStarted: false,
+                isCorrect: false,
+                lastAnswer: -1,
+                gameStartTime: 0,
+                isFirstGame: false,
+                selectedBpm: null,
+                selectedTimeSignature: null,
+            };
         });
     };
 
     handleNext = () => {
-        const idxBpm = BPMS.indexOf(this.state.bpmPlaying);
-        const idxTs = TIME_SIGNATURES.indexOf(this.state.timeSignaturePlaying);
+        const {
+            bpmPlaying,
+            timeSignaturePlaying,
+            isCorrect,
+            bpms,
+            timeSignatures,
+            numBpmChoices,
+            numTimeSignatureChoices,
+        } = this.state;
 
-        const statQuestions = [...this.state.statQuestions];
-        const statSkips = [...this.state.statSkips];
+        const prevStatsKey = `${bpmPlaying}|${timeSignaturePlaying}`;
 
-        statQuestions[idxBpm]++;
+        this.setState(prev => {
+            const stats = { ...prev.stats };
 
-        if (!this.state.isCorrect) {
-            statSkips[idxBpm]++;
-        }
+            // Safeguard in case stats entry does not exist
+            if (!stats[prevStatsKey]) {
+                stats[prevStatsKey] = {
+                    bpm: bpmPlaying,
+                    timeSignature: timeSignaturePlaying,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
 
-        const bpm = this.getNextBpm();
-        const timeSignature = this.getNextTimeSignature();
+            // Increment skips if the previous question was not answered correctly
+            if (!isCorrect) {
+                stats[prevStatsKey].skips++;
+            }
 
-        const bpmAnswers = this.getShuffledBpms(this.state.bpms, bpm, this.state.numBpmChoices);
+            // Select new bpm and time signature
+            const nextBpm = this.getNextBpm();
+            const nextTimeSignature = this.getNextTimeSignature();
 
-        const timeSignatureAnswers = this.getShuffledTimeSignatures(this.state.timeSignatures, timeSignature, this.state.numTimeSignatureChoices);
+            const newStatsKey = `${nextBpm}|${nextTimeSignature}`;
 
-        this.setState({
-            bpmPlaying: bpm,
-            timeSignaturePlaying: timeSignature,
-            selectedBpm: null,
-            selectedTimeSignature: null,
-            bpmAnswers,
-            timeSignatureAnswers,
-            gameStartTime: performance.now(),
-            lastAnswer: -1,
-            isCorrect: false,
-            statQuestions,
-            statSkips,
+            // Ensure stats entry exists for the new question
+            if (!stats[newStatsKey]) {
+                stats[newStatsKey] = {
+                    bpm: nextBpm,
+                    timeSignature: nextTimeSignature,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            // Increment question count for the new combination i.e. question
+            stats[newStatsKey].questions++;
+
+            return {
+                stats,
+                bpmPlaying: nextBpm,
+                timeSignaturePlaying: nextTimeSignature,
+                bpmAnswers: this.getShuffledBpms(bpms, nextBpm, numBpmChoices),
+                timeSignatureAnswers: this.getShuffledTimeSignatures(timeSignatures, nextTimeSignature, numTimeSignatureChoices),
+                selectedBpm: null,
+                selectedTimeSignature: null,
+                isCorrect: false,
+                lastAnswer: -1,
+                gameStartTime: performance.now(),
+            };
         }, this.handlePlayMelody);
     };
 
@@ -396,31 +471,30 @@ class TempoTrainer extends Component {
         }
 
         const now = performance.now();
-        const idxBpm = BPMS.indexOf(bpmPlaying);
+        const statsKey = this.getStatsKey();
 
-        const statTries = [...this.state.statTries];
-        statTries[idxBpm]++;
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+            const entry = stats[statsKey];
 
-        if (selectedBpm === bpmPlaying && selectedTimeSignature === timeSignaturePlaying) {
-            const statCorrect = [...this.state.statCorrect];
-            const statTriesTime = [...this.state.statTriesTime];
+            entry.tries++;
 
-            statCorrect[idxBpm]++;
-            statTriesTime[idxBpm] += now - gameStartTime;
+            if (selectedBpm === bpmPlaying && selectedTimeSignature === timeSignaturePlaying) {
+                entry.correct++;
+                entry.totalTime += now - gameStartTime;
 
-            this.setState({
-                isCorrect: true,
-                lastAnswer: 1,
-                statTries,
-                statTriesTime,
-                statCorrect,
-            });
-        } else {
-            this.setState({
-                statTries,
+                return {
+                    stats,
+                    isCorrect: true,
+                    lastAnswer: 1,
+                };
+            }
+
+            return {
+                stats,
                 lastAnswer: 0,
-            });
-        }
+            };
+        });
     };
 
     handlePlayMelody = () => {
@@ -465,50 +539,44 @@ class TempoTrainer extends Component {
         return shuffleArray([correctTimeSignature, ...selectedTimeSignatures]);
     };
 
+    ensureStatsEntry = (key) => {
+        if (!this.state.stats[key]) {
+            this.state.stats[key] = {
+                questions: 0,
+                skips: 0,
+                tries: 0,
+                correct: 0,
+                totalTime: 0,
+            };
+        }
+    };
+
+    getStatsKey = () => {
+        const { bpmPlaying, timeSignaturePlaying } = this.state;
+        return `${bpmPlaying}|${timeSignaturePlaying}`;
+    };
+
     getStatRows = () => {
-        const bpmStats = BPMS.map((bpm, i) => {
-            if (!this.state.statQuestions[i]) {
-                return null;
-            }
+        const { stats } = this.state;
 
-            const avg = (this.state.statTriesTime[i] / this.state.statCorrect[i] / 1000).toFixed(4);
+        return Object.keys(stats).map((key, i) => {
+            const entry = stats[key];
 
-            const acc = (this.state.statCorrect[i] / this.state.statQuestions[i] * 100).toFixed(4);
+            const averageCorrectTime = entry.correct > 0 ? (entry.totalTime / entry.correct / 1000).toFixed(4) : '0';
 
-            return {
-                id: `bpm-${i}`,
-                type: 'BPM',
-                value: bpm,
-                numQ: this.state.statQuestions[i],
-                numS: this.state.statSkips[i],
-                numA: this.state.statTries[i],
-                averageCorrectTime: isNaN(avg) ? '0' : avg,
-                accuracy: isNaN(acc) ? '0' : acc,
-            };
-        }).filter(Boolean);
-
-        const timeSignatureStats = TIME_SIGNATURES.map((ts, i) => {
-            if (!this.state.statQuestions[i + BPMS.length]) {
-                return null;
-            }
-
-            const avg = (this.state.statTriesTime[i + BPMS.length] / this.state.statCorrect[i + BPMS.length] / 1000).toFixed(4);
-
-            const acc = (this.state.statCorrect[i + BPMS.length] / this.state.statQuestions[i + BPMS.length] * 100).toFixed(4);
+            const accuracy = entry.tries > 0 ? (entry.correct / entry.tries).toFixed(4) : '0';
 
             return {
-                id: `ts-${i}`,
-                type: 'Time Signature',
-                value: ts,
-                numQ: this.state.statQuestions[i + BPMS.length],
-                numS: this.state.statSkips[i + BPMS.length],
-                numA: this.state.statTries[i + BPMS.length],
-                averageCorrectTime: isNaN(avg) ? '0' : avg,
-                accuracy: isNaN(acc) ? '0' : acc,
+                id: i,
+                bpm: entry.bpm,
+                ts: entry.timeSignature,
+                numQ: entry.questions,
+                numS: entry.skips,
+                numA: entry.tries,
+                averageCorrectTime,
+                accuracy,
             };
-        }).filter(Boolean);
-
-        return [...bpmStats, ...timeSignatureStats];
+        });
     };
 
     render() {
