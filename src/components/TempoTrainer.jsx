@@ -592,15 +592,21 @@ class TempoTrainer extends Component {
                         </Grid>
 
                         <Grid item>
-                            <BpmsAnswerButtons
-                                bpmAnswers={bpmAnswers}
-                                handleBpmAnswer={this.handleBpmAnswer}
-                            />
+                            <Grid container direction='column' spacing={2} alignItems="center">
+                                <Grid item>
+                                    <BpmsAnswerButtons
+                                        bpmAnswers={bpmAnswers}
+                                        handleBpmAnswer={this.handleBpmAnswer}
+                                    />
+                                </Grid>
 
-                            <TimeSignaturesAnswerButtons
-                                timeSignatureAnswers={timeSignatureAnswers}
-                                handleTimeSignatureAnswer={this.handleTimeSignatureAnswer}
-                            />
+                                <Grid item>
+                                    <TimeSignaturesAnswerButtons
+                                        timeSignatureAnswers={timeSignatureAnswers}
+                                        handleTimeSignatureAnswer={this.handleTimeSignatureAnswer}
+                                    />
+                                </Grid>
+                            </Grid>
                         </Grid>
 
                         <Grid item>
