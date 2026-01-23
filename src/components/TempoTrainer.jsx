@@ -289,6 +289,9 @@ class TempoTrainer extends Component {
     };
 
     handleGameStart = () => {
+        console.log('Game started');
+        console.log(this.state);
+
         const bpm = this.getNextBpm();
         const timeSignature = this.getNextTimeSignature();
 
@@ -332,6 +335,9 @@ class TempoTrainer extends Component {
     };
 
     handleGameStop = () => {
+        console.log('Game stopped');
+        console.log(this.state);
+
         // Current stats key e.g. "60|4/4"
         const statsKey = this.getStatsKey();
 
@@ -370,6 +376,9 @@ class TempoTrainer extends Component {
     };
 
     handleNext = () => {
+        console.log('Next question');
+        console.log(this.state);
+
         const {
             bpmPlaying,
             timeSignaturePlaying,
@@ -441,14 +450,20 @@ class TempoTrainer extends Component {
     };
 
     handleBpmAnswer = (bpm) => {
+        console.log(`BPM Answer selected: ${bpm}`);
+        console.log(this.state);
+
         if (this.state.isCorrect) {
             return;
         }
 
-        this.setState({ selectedBpm: bpm }, this.handleGameAnswer);
+        this.setState({ selectedBpm: bpm });
     };
 
     handleTimeSignatureAnswer = (timeSignature) => {
+        console.log(`Time Signature Answer selected: ${timeSignature}`);
+        console.log(this.state);
+
         if (this.state.isCorrect) {
             return;
         }
@@ -457,6 +472,9 @@ class TempoTrainer extends Component {
     };
 
     handleGameAnswer = () => {
+        console.log('Evaluating answer');
+        console.log(this.state);
+
         const {
             selectedBpm,
             selectedTimeSignature,
@@ -475,7 +493,8 @@ class TempoTrainer extends Component {
 
         this.setState(prev => {
             const stats = { ...prev.stats };
-            const entry = stats[statsKey];
+            const entry = { ...stats[statsKey] };  // Create a copy of the entry
+            stats[statsKey] = entry;                // Replace the reference
 
             entry.tries++;
 
@@ -498,6 +517,9 @@ class TempoTrainer extends Component {
     };
 
     handlePlayMelody = () => {
+        console.log('Playing melody');
+        console.log(this.state);
+
         const beatInterval = 60 / this.state.bpmPlaying;
         const beats = parseInt(this.state.timeSignaturePlaying.split('/')[0], 10);
 
@@ -540,6 +562,9 @@ class TempoTrainer extends Component {
     };
 
     ensureStatsEntry = (key) => {
+        console.log(`Ensuring stats entry for key: ${key}`);
+        console.log(this.state);
+
         if (!this.state.stats[key]) {
             this.state.stats[key] = {
                 questions: 0,
@@ -552,11 +577,17 @@ class TempoTrainer extends Component {
     };
 
     getStatsKey = () => {
+        console.log('Getting stats key');
+        console.log(this.state);
+
         const { bpmPlaying, timeSignaturePlaying } = this.state;
         return `${bpmPlaying}|${timeSignaturePlaying}`;
     };
 
     getStatRows = () => {
+        console.log('Getting stat rows');
+        console.log(this.state);
+
         const { stats } = this.state;
 
         return Object.keys(stats).map((key, i) => {
