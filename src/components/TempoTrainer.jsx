@@ -75,65 +75,6 @@ TemposCheckboxes.propTypes = {
     handleSelection: PropTypes.func.isRequired,
 };
 
-// function BpmsCheckboxes({ bpms, handleSelection }) {
-//     return (
-//         <>
-//             <FormLabel component="legend">
-//                 Choose the BPMs (Tempos)
-//             </FormLabel>
-//             <FormGroup row>
-//                 {BPMS.map((bpm, i) => (
-//                     <FormControlLabel
-//                         key={bpm}
-//                         control={
-//                             <Checkbox
-//                                 checked={bpms[i]}
-//                                 onChange={handleSelection(bpm)}
-//                                 value={bpm}
-//                             />
-//                         }
-//                         label={bpm}
-//                     />
-//                 ))}
-//             </FormGroup>
-//         </>
-//     );
-// }
-
-// BpmsCheckboxes.propTypes = {
-//     bpms: PropTypes.arrayOf(PropTypes.bool).isRequired,
-//     handleSelection: PropTypes.func.isRequired,
-// };
-
-// function TimeSignaturesCheckboxes({ timeSignatures, handleSelection }) {
-//     return (
-//         <>
-//             <FormLabel component="legend">
-//                 Choose the Time Signatures
-//             </FormLabel>
-//             <FormGroup row>
-//                 {TIME_SIGNATURES.map((ts, i) => (
-//                     <FormControlLabel
-//                         key={ts}
-//                         control={
-//                             <Checkbox
-//                                 checked={timeSignatures[i]}
-//                                 onChange={handleSelection(ts)}
-//                             />
-//                         }
-//                         label={ts}
-//                     />
-//                 ))}
-//             </FormGroup>
-//         </>
-//     );
-// }
-
-// TimeSignaturesCheckboxes.propTypes = {
-//     timeSignatures: PropTypes.arrayOf(PropTypes.bool).isRequired,
-//     handleSelection: PropTypes.func.isRequired,
-// };
-
 function BpmsAnswerButtons({ bpmAnswers, handleBpmAnswer }) {
     return (
         <Grid container spacing={2} direction="row" alignItems="center">
@@ -248,11 +189,6 @@ class TempoTrainer extends Component {
 
 
             stats: {},
-            // statQuestions: Array(12).fill(0), // how many questions shown for a tone
-            // statSkips: Array(12).fill(0), // how many skipped questions shown for a tone
-            // statTries: Array(12).fill(0), // how many tries did user made for a tone
-            // statTriesTime: Array(12).fill(0), // how long in total for user to decide a tone, used to calc average time
-            // statCorrect: Array(12).fill(0), // how many correct ans in first selection, used to calc the accuracy
         };
 
         this.NUM_BPM_CHOICES_LIST = BPMS.map((_, i) => (
@@ -289,9 +225,6 @@ class TempoTrainer extends Component {
     };
 
     handleGameStart = () => {
-        console.log('Game started');
-        console.log(this.state);
-
         const bpm = this.getNextBpm();
         const timeSignature = this.getNextTimeSignature();
 
@@ -337,9 +270,6 @@ class TempoTrainer extends Component {
     };
 
     handleGameStop = () => {
-        console.log('Game stopped');
-        console.log(this.state);
-
         // Current stats key e.g. "60|4/4"
         const statsKey = this.getStatsKey();
 
@@ -380,9 +310,6 @@ class TempoTrainer extends Component {
     };
 
     handleNext = () => {
-        console.log('Next question');
-        console.log(this.state);
-
         const {
             bpmPlaying,
             timeSignaturePlaying,
@@ -458,20 +385,14 @@ class TempoTrainer extends Component {
     };
 
     handleBpmAnswer = (bpm) => {
-        console.log(`BPM Answer selected: ${bpm}`);
-        console.log(this.state);
-
         if (this.state.isCorrect) {
             return;
         }
 
-        this.setState({ selectedBpm: bpm });
+        this.setState({ selectedBpm: bpm }, this.handleGameAnswer);
     };
 
     handleTimeSignatureAnswer = (timeSignature) => {
-        console.log(`Time Signature Answer selected: ${timeSignature}`);
-        console.log(this.state);
-
         if (this.state.isCorrect) {
             return;
         }
@@ -480,9 +401,6 @@ class TempoTrainer extends Component {
     };
 
     handleGameAnswer = () => {
-        console.log('Evaluating answer');
-        console.log(this.state);
-
         const {
             selectedBpm,
             selectedTimeSignature,
@@ -492,7 +410,7 @@ class TempoTrainer extends Component {
             gameStartTime,
         } = this.state;
 
-        if (!selectedBpm || !selectedTimeSignature || isCorrect) {
+        if (selectedBpm == null || selectedTimeSignature == null || isCorrect) {
             return;
         }
 
@@ -525,9 +443,6 @@ class TempoTrainer extends Component {
     };
 
     handlePlayMelody = () => {
-        console.log('Playing melody');
-        console.log(this.state);
-
         const beatInterval = 60 / this.state.bpmPlaying;
         const beats = parseInt(this.state.timeSignaturePlaying.split('/')[0], 10);
 
@@ -570,9 +485,6 @@ class TempoTrainer extends Component {
     };
 
     ensureStatsEntry = (key) => {
-        console.log(`Ensuring stats entry for key: ${key}`);
-        console.log(this.state);
-
         if (!this.state.stats[key]) {
             this.state.stats[key] = {
                 questions: 0,
@@ -585,17 +497,11 @@ class TempoTrainer extends Component {
     };
 
     getStatsKey = () => {
-        console.log('Getting stats key');
-        console.log(this.state);
-
         const { bpmPlaying, timeSignaturePlaying } = this.state;
         return `${bpmPlaying}|${timeSignaturePlaying}`;
     };
 
     getStatRows = () => {
-        console.log('Getting stat rows');
-        console.log(this.state);
-
         const { stats } = this.state;
 
         return Object.keys(stats).map((key, i) => {
@@ -752,247 +658,3 @@ class TempoTrainer extends Component {
 }
 
 export default TempoTrainer;
-
-
-
-
-
-
-
-
-/*
-        handleBpmToggle = (bpm) => (event) => {
-            const bpmEnabled = [...this.state.bpmEnabled];
-                bpmEnabled[BPMS.indexOf(bpm)] = event.target.checked;
-                this.setState({bpmEnabled});
-        };
-
-        handleTimeSignatureToggle = (ts) => (event) => {
-            const timeSignatureEnabled = [...this.state.timeSignatureEnabled];
-                timeSignatureEnabled[TIME_SIGNATURES.indexOf(ts)] = event.target.checked;
-                this.setState({timeSignatureEnabled});
-        };
-
-        startGame = () => {
-            const tempoBpm = this.getNextBpm();
-                const timeSignature = this.getNextTimeSignature();
-
-                this.setState({
-                    isStarted: true,
-                tempoBpm,
-                timeSignature,
-                selectedBpm: null,
-                selectedTimeSignature: null,
-                isCorrect: false,
-                lastAnswer: -1,
-                gameStartTime: performance.now(),
-            }, this.playMetronome);
-        };
-
-        endGame = () => {
-            if (this.state.lastAnswer !== 1) {
-                    this.setState(prev => ({ skips: prev.skips + 1 }));
-            }
-
-                this.setState({isStarted: false });
-        };
-
-        playMetronome = () => {
-            const beatInterval = 60 / this.state.tempoBpm;
-                const beats = parseInt(this.state.timeSignature.split('/')[0], 10);
-
-                for (let i = 0; i < beats; i++) {
-                const osc = this.audioCtx.createOscillator();
-                osc.frequency.value = i === 0 ? 1000 : 700;
-                osc.connect(this.audioCtx.destination);
-                osc.start(this.audioCtx.currentTime + i * beatInterval);
-                osc.stop(this.audioCtx.currentTime + i * beatInterval + 0.05);
-            }
-        };
-
-        handleBpmSelect = (bpm) => {
-                    this.setState({ selectedBpm: bpm }, this.evaluateAnswer);
-        };
-
-        handleTimeSignatureSelect = (timeSignature) => {
-                    this.setState({ selectedTimeSignature: timeSignature }, this.evaluateAnswer);
-        };
-
-        evaluateAnswer = () => {
-            const {
-                    selectedBpm,
-                    selectedTimeSignature,
-                    tempoBpm,
-                    timeSignature,
-                    isCorrect
-                } = this.state;
-
-                // Only evaluate if both selections have been made
-                if (!selectedBpm || !selectedTimeSignature) {
-                return;
-            };
-
-                // Prevent re-evaluation if already correct
-                if (this.state.isCorrect) {
-                return;
-            }
-
-                const now = performance.now();
-
-            this.setState(prev => ({
-                    attempts: prev.attempts + 1
-            }));
-
-                if (selectedBpm === tempoBpm && selectedTimeSignature === timeSignature) {
-                    this.setState(prev => ({
-                        isCorrect: true,
-                        lastAnswer: 1,
-                        correct: prev.correct + 1,
-                        totalResponseTime: prev.totalResponseTime + (now - prev.gameStartTime)
-                    }));
-            } else {
-                    this.setState({
-                        lastAnswer: 0,
-                    });
-            }
-        };
-
-        nextQuestion = () => {
-            if (!this.state.isCorrect) {
-                    this.setState(prev => ({ skips: prev.skips + 1 }));
-            }
-
-            this.setState(prev => ({
-                    questions: prev.questions + 1
-            }), this.startGame);
-        };
-
-        getNextBpm = () => {
-            const available = BPMS.filter((_, i) => this.state.bpmEnabled[i]);
-
-                // Safeguard against no options selected
-                if (available.length === 0) {
-                return BPMS[Math.floor(Math.random() * BPMS.length)];
-            }
-
-                return available[Math.floor(Math.random() * available.length)];
-        };
-
-        getNextTimeSignature = () => {
-            const available = TIME_SIGNATURES.filter((_, i) => this.state.timeSignatureEnabled[i]);
-
-                // Safeguard against no options selected
-                if (available.length === 0) {
-                return TIME_SIGNATURES[Math.floor(Math.random() * TIME_SIGNATURES.length)];
-            }
-
-                return available[Math.floor(Math.random() * available.length)];
-        };
-
-                render() {
-            const {
-                    isLoaded,
-                    isStarted,
-                    isCorrect,
-                    bpms,
-                    timeSignatures,
-                    answers,
-                    bpmPlaying,
-                    timeSignaturePlaying,
-                    lastAnswer,
-                    isFirstGame,
-            } = this.state;
-
-                return (
-                <Grid container spacing={4} direction="column" alignItems="center" style={{ minHeight: '90vh' }}>
-                    <Grid item>
-                        <h1>Tempo Recognition Practice</h1>
-                        <h2>{!isStarted ? 'Customise the training' : 'Listen and identify tempo & time signature'}</h2>
-                    </Grid>
-
-                    <Grid item>
-                        <BpmsCheckboxes
-                            bpms={bpms}
-                            handleSelection={this.handleSelection}
-                        />
-                    </Grid>
-
-
-                    {!isStarted && (
-                        <>
-
-
-                            <Grid item>
-
-                            </Grid>
-                        </>
-                    )}
-
-                    {isStarted && (
-                        <>
-                            <Grid item>
-                                <Typography variant="h6">Select Tempo (BPM):</Typography>
-                                {BPMS.map(bpm => (
-                                    <Button
-                                        key={bpm}
-                                        variant={selectedBpm === bpm ? 'contained' : 'outlined'}
-                                        onClick={() => this.handleBpmSelect(bpm)}
-                                        sx={{ m: 1 }}
-                                    >
-                                        {bpm}
-                                    </Button>
-                                ))}
-                            </Grid>
-
-                            <Grid item>
-                                <Typography variant="h6">Select Time Signature:</Typography>
-                                {TIME_SIGNATURES.map(ts => (
-                                    <Button
-                                        key={ts}
-                                        variant={selectedTimeSignature === ts ? 'contained' : 'outlined'}
-                                        onClick={() => this.handleTimeSignatureSelect(ts)}
-                                        sx={{ m: 1 }}
-                                    >
-                                        {ts}
-                                    </Button>
-                                ))}
-                            </Grid>
-
-                            <Grid item>
-                                <Typography variant="h5">
-                                    {lastAnswer === -1 ?
-                                        'Make your selections' :
-                                        lastAnswer === 1 ?
-                                            'Correct!' :
-                                            'Incorrect, try again.'}
-                                </Typography>
-                            </Grid>
-                        </>
-                    )}
-
-                    <Grid item>
-                        {!isStarted ? (
-                            <Button variant="contained" color="secondary" onClick={this.startGame}>
-                                <ArrowRightIcon sx={{ mr: 1 }} />
-                                Start
-                            </Button>
-                        ) : (
-                            <>
-                                <Button variant="contained" onClick={this.nextQuestion} sx={{ mr: 2 }}>
-                                    <NavigateNextIcon sx={{ mr: 1 }} />
-                                    Next
-                                </Button>
-                                <Button variant="contained" color="secondary" onClick={this.endGame}>
-                                    <StopIcon sx={{ mr: 1 }} />
-                                    End
-                                </Button>
-                            </>
-                        )}
-                    </Grid>
-                </Grid>
-                );
-        }
-    }
-
-                export default TempoTrainer;
-*/
