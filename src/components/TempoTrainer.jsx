@@ -316,7 +316,9 @@ class TempoTrainer extends Component {
                 };
             }
 
-            stats[statsKey].questions++;
+            const entry = { ...stats[statsKey] };
+            entry.questions++;
+            stats[statsKey] = entry;
 
             return {
                 stats,
@@ -359,7 +361,9 @@ class TempoTrainer extends Component {
 
             // Increment skips if the previous question was not answered correctly
             if (!prev.isCorrect) {
-                stats[statsKey].skips++;
+                const entry = { ...stats[statsKey] };
+                entry.skips++;
+                stats[statsKey] = entry;
             }
 
             return {
@@ -409,7 +413,9 @@ class TempoTrainer extends Component {
 
             // Increment skips if the previous question was not answered correctly
             if (!isCorrect) {
-                stats[prevStatsKey].skips++;
+                const prevEntry = { ...stats[prevStatsKey] };
+                prevEntry.skips++;
+                stats[prevStatsKey] = prevEntry;
             }
 
             // Select new bpm and time signature
@@ -432,7 +438,9 @@ class TempoTrainer extends Component {
             }
 
             // Increment question count for the new combination i.e. question
-            stats[newStatsKey].questions++;
+            const newEntry = { ...stats[newStatsKey] };
+            newEntry.questions++;
+            stats[newStatsKey] = newEntry;
 
             return {
                 stats,
