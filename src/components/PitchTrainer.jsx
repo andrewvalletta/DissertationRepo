@@ -36,7 +36,7 @@ function TonesCheckboxes({ tones, handleSelection }) {
             <FormLabel component="legend">
                 Choose the notes to test, you can change anytime
             </FormLabel>
-            <FormGroup row sx={{justifyContent: 'center'}}>
+            <FormGroup row sx={{ justifyContent: 'center' }}>
                 {TONES.map((t, i) => (
                     <FormControlLabel
                         key={t}
@@ -122,26 +122,29 @@ class PitchTrainer extends Component {
         this.state = {
             //     ['C',  'C#',  'D',  'D#',  'E',   'F',   'F#',  'G',  'G#',  'A',  'A#',  'B']
             tones: [true, false, true, false, false, false, false, true, false, true, false, false],
+
             isLoaded: false,
             isStarted: false,
+            
             numChoices: 3,
+            
             tonePlaying: 'C',
             notePlaying: 'C4',
+            
             gameStartTime: 0,
+            
             isCorrect: false,
             lastAnswer: -1, // -1: no ans, 0: wrong ans, 1: correct ans
             answers: [],
+            
             isFirstGame: true,
-            statQuestions: Array(12).fill(0), // how many questions shown for a tone
-            statSkips: Array(12).fill(0), // how many skipped questions shown for a tone
-            statTries: Array(12).fill(0), // how many tries did user made for a tone
-            statTriesTime: Array(12).fill(0), // how long in total for user to decide a tone, used to calc average time
-            statCorrect: Array(12).fill(0), // how many correct ans in first selection, used to calc the accuracy
+            
+            stats: {},
         };
 
         this.NUM_CHOICES_LIST = TONES.map((_, i) => (
             <MenuItem key={i} value={i}>{i}</MenuItem>
-        )).slice(3);
+        )).slice(3); // min 3 choices
 
         this.ac = new AudioContext();
         soundfontInstrument(this.ac, 'acoustic_grand_piano', {
@@ -165,83 +168,170 @@ class PitchTrainer extends Component {
     handleGameStart = () => {
         const tone = this.getNextTone();
         const answers = this.getShuffledAnswers(this.state.tones, tone, this.state.numChoices);
-        this.setState({
-            gameStartTime: performance.now(),
-            isStarted: true,
-            tonePlaying: tone,
-            notePlaying: this.getNextNote(tone),
-            isCorrect: false,
-            lastAnswer: -1,
-            answers,
+
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+
+            if (!stats[tone]) {
+                stats[tone] = {
+                    note: tone,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            const entry = { ...stats[tone] };
+            entry.questions++;
+            stats[tone] = entry;
+
+            return {
+                stats,
+                gameStartTime: performance.now(),
+                isStarted: true,
+                tonePlaying: tone,
+                notePlaying: this.getNextNote(tone),
+                isCorrect: false,
+                lastAnswer: -1,
+                answers,
+            };
         }, this.handlePlayNote);
     };
 
     handleGameStop = () => {
-        const idx = TONES.indexOf(this.state.tonePlaying);
-        const statQuestions = [...this.state.statQuestions];
-        const statSkips = [...this.state.statSkips];
-        statQuestions[idx]++;
-        if (!this.state.isCorrect) statSkips[idx]++;
-        this.setState({
-            isStarted: false,
-            isCorrect: false,
-            isFirstGame: false,
-            lastAnswer: -1,
-            gameStartTime: 0,
-            statQuestions,
-            statSkips,
+        // Current stats key e.g. 'C'
+        const statsKey = this.state.tonePlaying;
+
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+
+            // Initialise stats entry if not present
+            if (!stats[statsKey]) {
+                stats[statsKey] = {
+                    note: prev.tonePlaying,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            // Increment skips if the last question was not answered correctly
+            if (!prev.isCorrect) {
+                const entry = { ...stats[statsKey] };
+                entry.skips++;
+                stats[statsKey] = entry;
+            }
+
+            return {
+                stats,
+                isStarted: false,
+                isCorrect: false,
+                isFirstGame: false,
+                lastAnswer: -1,
+                gameStartTime: 0,
+            };
         });
     };
 
     handleNext = () => {
-        const idx = TONES.indexOf(this.state.tonePlaying);
-        const statQuestions = [...this.state.statQuestions];
-        const statSkips = [...this.state.statSkips];
-        statQuestions[idx]++;
-        if (!this.state.isCorrect) statSkips[idx]++;
-        const tone = this.getNextTone();
-        const answers = this.getShuffledAnswers(this.state.tones, tone, this.state.numChoices);
-        this.setState({
-            tonePlaying: tone,
-            notePlaying: this.getNextNote(tone),
-            answers,
-            gameStartTime: performance.now(),
-            lastAnswer: -1,
-            isCorrect: false,
-            statQuestions,
-            statSkips,
+        const { tonePlaying, isCorrect } = this.state;
+        const prevStatsKey = tonePlaying;
+
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+
+            // Initialise stats entry if not present
+            if (!stats[prevStatsKey]) {
+                stats[prevStatsKey] = {
+                    note: tonePlaying,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            // Increment skips if the previous question was not answered correctly
+            if (!isCorrect) {
+                const prevEntry = { ...stats[prevStatsKey] };
+                prevEntry.skips++;
+                stats[prevStatsKey] = prevEntry;
+            }
+
+            // Select new tone
+            const nextTone = this.getNextTone();
+
+            const newStatsKey = nextTone;
+
+            // Ensure stats entry exists for new question
+            if (!stats[newStatsKey]) {
+                stats[newStatsKey] = {
+                    note: nextTone,
+                    questions: 0,
+                    skips: 0,
+                    tries: 0,
+                    correct: 0,
+                    totalTime: 0,
+                };
+            }
+
+            // Increment question count for the new tone i.e. question
+            const newEntry = { ...stats[newStatsKey] };
+            newEntry.questions++;
+            stats[newStatsKey] = newEntry;
+
+            return {
+                stats,
+                tonePlaying: nextTone,
+                notePlaying: this.getNextNote(nextTone),
+                answers: this.getShuffledAnswers(prev.tones, nextTone, prev.numChoices),
+                gameStartTime: performance.now(),
+                lastAnswer: -1,
+                isCorrect: false,
+            };
         }, this.handlePlayNote);
     };
 
     handleGameAnswer = (note) => {
-        const now = performance.now();
-        const idx = TONES.indexOf(this.state.tonePlaying);
-        const statTries = [...this.state.statTries];
-        statTries[idx]++;
         if (this.state.isCorrect) return;
-        if (note === this.state.tonePlaying) {
-            const statCorrect = [...this.state.statCorrect];
-            const statTriesTime = [...this.state.statTriesTime];
-            statCorrect[idx]++;
-            statTriesTime[idx] += now - this.state.gameStartTime; // time in ms
-            this.setState({
-                isCorrect: true,
-                lastAnswer: 1,
-                statTries,
-                statTriesTime,
-                statCorrect,
-            });
-        } else {
-            this.setState({
-                statTries,
+
+        const now = performance.now();
+        const statsKey = this.state.tonePlaying;
+
+        this.setState(prev => {
+            const stats = { ...prev.stats };
+            const entry = { ...stats[statsKey] };
+            stats[statsKey] = entry;
+
+            entry.tries++;
+
+            if (note === prev.tonePlaying) {
+                entry.correct++;
+                entry.totalTime += now - prev.gameStartTime;
+
+                return {
+                    stats,
+                    isCorrect: true,
+                    lastAnswer: 1,
+                };
+            }
+
+            return {
+                stats,
                 lastAnswer: 0,
-            });
-        }
+            };
+        });
     };
 
     handlePlayNote = () => {
         this.somePiano.play(this.state.notePlaying);
     };
+
     // randomly chose a note from the tones user chooses
     getNextTone = () => {
         const available = TONES.filter((_, i) => this.state.tones[i]);
@@ -251,28 +341,34 @@ class PitchTrainer extends Component {
     getNextNote = (tone) => {
         return tone + OCTAVE_NUMBERS[Math.floor(Math.random() * OCTAVE_NUMBERS.length)];
     };
-    // return an array of possible answers
+
+    // return an array of possible tone answers
     getShuffledAnswers = (tones, correctTone, count) => {
         const available = TONES.filter((t, i) => tones[i] && t !== correctTone);
         const selected = shuffleArray(available).slice(0, count - 1);
         return shuffleArray([correctTone, ...selected]);
     };
+    
     // return an array of objects representing rows of the stat table
     getStatRows = () => {
-        return TONES.map((tone, i) => {
-            if (!this.state.statQuestions[i]) return null;
-            const avg = (this.state.statTriesTime[i] / this.state.statCorrect[i] / 1000).toFixed(4);
-            const acc = (this.state.statCorrect[i] / this.state.statTries[i]).toFixed(4);
+        const { stats } = this.state;
+
+        return Object.keys(stats).map((key, i) => {
+            const entry = stats[key];
+
+            const averageCorrectTime = entry.correct > 0 ? (entry.totalTime / entry.correct / 1000).toFixed(4) : '0';
+            const accuracy = entry.tries > 0 ? (entry.correct / entry.tries).toFixed(4) : '0';
+
             return {
                 id: i,
-                note: tone,
-                numQ: this.state.statQuestions[i],
-                numS: this.state.statSkips[i],
-                numA: this.state.statTries[i],
-                averageCorrectTime: isNaN(avg) ? 0 : avg,
-                accuracy: isNaN(acc) ? 0 : acc,
+                note: entry.note,
+                numQ: entry.questions,
+                numS: entry.skips,
+                numA: entry.tries,
+                averageCorrectTime,
+                accuracy,
             };
-        }).filter(Boolean);
+        });
     };
 
     render() {

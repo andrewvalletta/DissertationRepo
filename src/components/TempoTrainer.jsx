@@ -187,7 +187,6 @@ class TempoTrainer extends Component {
 
             isFirstGame: true,
 
-
             stats: {},
         };
 
