@@ -144,10 +144,6 @@ class PitchTrainer extends Component {
             stats: {},
         };
 
-        this.NUM_CHOICES_LIST = TONES.map((_, i) => (
-            <MenuItem key={i} value={i}>{i}</MenuItem>
-        )).slice(3); // min 3 choices
-
         this.ac = new AudioContext();
         soundfontInstrument(this.ac, 'acoustic_grand_piano', {
             soundfont: 'MusyngKite',
@@ -158,13 +154,30 @@ class PitchTrainer extends Component {
     }
 
     handleSelection = (name) => (event) => {
-        const tones = [...this.state.tones];
-        tones[TONES.indexOf(name)] = event.target.checked;
-        this.setState({ tones });
+        this.setState((prev) => {
+            const tones = [...prev.tones];
+            tones[TONES.indexOf(name)] = event.target.checked;
+
+            const selectedCount = tones.filter(Boolean).length;
+            const maxChoices = Math.max(1, selectedCount);
+            const minChoices = Math.min(3, maxChoices);
+            const numChoices = Math.max(minChoices, Math.min(prev.numChoices, maxChoices));
+
+            return { tones, numChoices };
+        });
     };
 
     handleNumChoices = (event) => {
-        this.setState({ [event.target.name]: event.target.value });
+        const { value, name } = event.target;
+
+        this.setState((prev) => {
+            const selectedCount = prev.tones.filter(Boolean).length;
+            const maxChoices = Math.max(1, selectedCount);
+            const minChoices = Math.min(3, maxChoices);
+            const nextValue = Math.max(minChoices, Math.min(value, maxChoices));
+
+            return { [name]: nextValue };
+        });
     };
 
     handleGameStart = () => {
@@ -377,6 +390,19 @@ class PitchTrainer extends Component {
         });
     };
 
+    getChoiceMenuItems = () => {
+        const selectedCount = this.state.tones.filter(Boolean).length;
+        const maxChoices = Math.max(1, selectedCount);
+        const minChoices = Math.min(3, maxChoices);
+        const items = [];
+
+        for (let i = minChoices; i <= maxChoices; i++) {
+            items.push(<MenuItem key={i} value={i}>{i}</MenuItem>);
+        }
+
+        return items;
+    };
+
     render() {
         const {
             isLoaded,
@@ -411,7 +437,7 @@ class PitchTrainer extends Component {
                                 onChange={this.handleNumChoices}
                                 name="numChoices"
                             >
-                                {this.NUM_CHOICES_LIST}
+                                {this.getChoiceMenuItems()}
                             </Select>
                         </FormControl>
                     </Grid>

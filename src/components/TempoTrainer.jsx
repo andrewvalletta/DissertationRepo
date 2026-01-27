@@ -192,37 +192,60 @@ class TempoTrainer extends Component {
             stats: {},
         };
 
-        this.NUM_BPM_CHOICES_LIST = BPMS.map((_, i) => (
-            <MenuItem key={i} value={i}>
-                {i}
-            </MenuItem>
-        )).slice(2); // min 2 choices
-
-        this.NUM_TIME_SIGNATURE_CHOICES_LIST = TIME_SIGNATURES.map((_, i) => (
-            <MenuItem key={i} value={i}>
-                {i}
-            </MenuItem>
-        )).slice(2); // min 2 choices
-
         this.audioCtx = new AudioContext();
     }
 
     handleSelection = (name) => (event) => {
-        if (BPMS.includes(name)) {
-            const bpms = [...this.state.bpms];
-            bpms[BPMS.indexOf(name)] = event.target.checked;
-            this.setState({ bpms });
-            return;
-        } else if (TIME_SIGNATURES.includes(name)) {
-            const timeSignatures = [...this.state.timeSignatures];
-            timeSignatures[TIME_SIGNATURES.indexOf(name)] = event.target.checked;
-            this.setState({ timeSignatures });
-            return;
-        }
+        this.setState((prev) => {
+            const bpms = [...prev.bpms];
+            const timeSignatures = [...prev.timeSignatures];
+
+            if (BPMS.includes(name)) {
+                bpms[BPMS.indexOf(name)] = event.target.checked;
+            }
+
+            if (TIME_SIGNATURES.includes(name)) {
+                timeSignatures[TIME_SIGNATURES.indexOf(name)] = event.target.checked;
+            }
+
+            const maxBpmChoices = Math.max(1, bpms.filter(Boolean).length);
+            const maxTsChoices = Math.max(1, timeSignatures.filter(Boolean).length);
+
+            const minBpmChoices = Math.min(2, maxBpmChoices);
+            const minTsChoices = Math.min(2, maxTsChoices);
+
+            const numBpmChoices = Math.max(minBpmChoices, Math.min(prev.numBpmChoices, maxBpmChoices));
+            const numTimeSignatureChoices = Math.max(minTsChoices, Math.min(prev.numTimeSignatureChoices, maxTsChoices));
+
+            return {
+                bpms,
+                timeSignatures,
+                numBpmChoices,
+                numTimeSignatureChoices,
+            };
+        });
     };
 
     handleNumChoices = (event) => {
-        this.setState({ [event.target.name]: event.target.value });
+        const { name, value } = event.target;
+
+        this.setState((prev) => {
+            if (name === 'numBpmChoices') {
+                const maxChoices = Math.max(1, prev.bpms.filter(Boolean).length);
+                const minChoices = Math.min(2, maxChoices);
+                const nextValue = Math.max(minChoices, Math.min(value, maxChoices));
+                return { numBpmChoices: nextValue };
+            }
+
+            if (name === 'numTimeSignatureChoices') {
+                const maxChoices = Math.max(1, prev.timeSignatures.filter(Boolean).length);
+                const minChoices = Math.min(2, maxChoices);
+                const nextValue = Math.max(minChoices, Math.min(value, maxChoices));
+                return { numTimeSignatureChoices: nextValue };
+            }
+
+            return null;
+        });
     };
 
     handleGameStart = () => {
@@ -525,6 +548,21 @@ class TempoTrainer extends Component {
         });
     };
 
+    getChoiceMenuItems = (minChoices, maxChoices) => {
+        const items = [];
+        const start = Math.min(minChoices, maxChoices);
+
+        for (let i = start; i <= maxChoices; i++) {
+            items.push(
+                <MenuItem key={i} value={i}>
+                    {i}
+                </MenuItem>
+            );
+        }
+
+        return items;
+    };
+
     render() {
         const {
             isLoaded,
@@ -543,6 +581,9 @@ class TempoTrainer extends Component {
             selectedBpm,
             selectedTimeSignature,
         } = this.state;
+
+        const maxBpmChoices = Math.max(1, bpms.filter(Boolean).length);
+        const maxTimeSignatureChoices = Math.max(1, timeSignatures.filter(Boolean).length);
 
         return (
             <Grid container spacing={4} direction="column" alignItems="center" style={{ minHeight: '90vh', width: '100%', margin: 'auto' }}>
@@ -569,7 +610,7 @@ class TempoTrainer extends Component {
                                     onChange={this.handleNumChoices}
                                     name="numBpmChoices"
                                 >
-                                    {this.NUM_BPM_CHOICES_LIST}
+                                    {this.getChoiceMenuItems(2, maxBpmChoices)}
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -582,7 +623,7 @@ class TempoTrainer extends Component {
                                     onChange={this.handleNumChoices}
                                     name="numTimeSignatureChoices"
                                 >
-                                    {this.NUM_TIME_SIGNATURE_CHOICES_LIST}
+                                    {this.getChoiceMenuItems(2, maxTimeSignatureChoices)}
                                 </Select>
                             </FormControl>
                         </Grid>
