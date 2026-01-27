@@ -60,13 +60,13 @@ TonesCheckboxes.propTypes = {
     handleSelection: PropTypes.func.isRequired,
 };
 
-function TonesAnswerButtons({ answers, handleGameAnswer }) {
+function TonesAnswerButtons({ answers, handleGameAnswer, selectedAnswer }) {
     return (
         <Grid container spacing={2} direction="row" alignItems="center">
             {answers.map((note) => (
                 <Grid item key={note}>
                     <Button
-                        variant="outlined"
+                        variant={selectedAnswer === note ? "outlined" : "contained"}
                         className="pitch-trainer-button"
                         onClick={() => handleGameAnswer(note)}
                     >
@@ -81,6 +81,7 @@ function TonesAnswerButtons({ answers, handleGameAnswer }) {
 TonesAnswerButtons.propTypes = {
     answers: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleGameAnswer: PropTypes.func.isRequired,
+    selectedAnswer: PropTypes.string,
 };
 
 function PitchTrainerStatistics({ rows }) {
@@ -136,6 +137,7 @@ class PitchTrainer extends Component {
             isCorrect: false,
             lastAnswer: -1, // -1: no ans, 0: wrong ans, 1: correct ans
             answers: [],
+            selectedAnswer: null,
             
             isFirstGame: true,
             
@@ -196,6 +198,7 @@ class PitchTrainer extends Component {
                 isCorrect: false,
                 lastAnswer: -1,
                 answers,
+                selectedAnswer: null,
             };
         }, this.handlePlayNote);
     };
@@ -293,6 +296,7 @@ class PitchTrainer extends Component {
                 gameStartTime: performance.now(),
                 lastAnswer: -1,
                 isCorrect: false,
+                selectedAnswer: null,
             };
         }, this.handlePlayNote);
     };
@@ -318,12 +322,14 @@ class PitchTrainer extends Component {
                     stats,
                     isCorrect: true,
                     lastAnswer: 1,
+                    selectedAnswer: note,
                 };
             }
 
             return {
                 stats,
                 lastAnswer: 0,
+                selectedAnswer: note,
             };
         });
     };
@@ -382,6 +388,7 @@ class PitchTrainer extends Component {
             notePlaying,
             lastAnswer,
             isFirstGame,
+            selectedAnswer,
         } = this.state;
 
         return (
@@ -430,7 +437,7 @@ class PitchTrainer extends Component {
                         </Grid>
 
                         <Grid item>
-                            <TonesAnswerButtons answers={answers} handleGameAnswer={this.handleGameAnswer} />
+                            <TonesAnswerButtons answers={answers} handleGameAnswer={this.handleGameAnswer} selectedAnswer={selectedAnswer} />
                         </Grid>
 
                         <Grid item>
