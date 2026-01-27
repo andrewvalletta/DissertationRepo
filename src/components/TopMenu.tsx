@@ -19,9 +19,6 @@ const TopMenu: React.FC = () => {
                         <Button color="inherit" component={Link} to="/">
                             Home
                         </Button>
-                        <Button color="inherit" component={Link} to="/tone">
-                            Tone
-                        </Button>
                         <Button color="inherit" component={Link} to="/pitch">
                             Pitch
                         </Button>
