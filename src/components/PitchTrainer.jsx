@@ -145,12 +145,23 @@ class PitchTrainer extends Component {
         };
 
         this.ac = new AudioContext();
+        this._isMounted = false;
         soundfontInstrument(this.ac, 'acoustic_grand_piano', {
             soundfont: 'MusyngKite',
         }).then((instrument) => {
             this.somePiano = instrument;
-            this.setState({ isLoaded: true });
+            if (this._isMounted) {
+                this.setState({ isLoaded: true });
+            }
         });
+    }
+
+    componentDidMount() {
+        this._isMounted = true;
+    }
+
+    componentWillUnmount() {
+        this._isMounted = false;
     }
 
     handleSelection = (name) => (event) => {
