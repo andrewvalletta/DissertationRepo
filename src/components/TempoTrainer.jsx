@@ -75,13 +75,13 @@ TemposCheckboxes.propTypes = {
     handleSelection: PropTypes.func.isRequired,
 };
 
-function BpmsAnswerButtons({ bpmAnswers, handleBpmAnswer }) {
+function BpmsAnswerButtons({ bpmAnswers, handleBpmAnswer, selectedBpm }) {
     return (
         <Grid container spacing={2} direction="row" alignItems="center">
             {bpmAnswers.map((bpm) => (
                 <Grid item key={bpm}>
                     <Button
-                        variant="outlined"
+                        variant={selectedBpm === bpm ? "outlined" : "contained"}
                         className="tempo-trainer-button"
                         onClick={() => handleBpmAnswer(bpm)}
                     >
@@ -96,15 +96,16 @@ function BpmsAnswerButtons({ bpmAnswers, handleBpmAnswer }) {
 BpmsAnswerButtons.propTypes = {
     bpmAnswers: PropTypes.arrayOf(PropTypes.number).isRequired,
     handleBpmAnswer: PropTypes.func.isRequired,
+    selectedBpm: PropTypes.number,
 };
 
-function TimeSignaturesAnswerButtons({ timeSignatureAnswers, handleTimeSignatureAnswer }) {
+function TimeSignaturesAnswerButtons({ timeSignatureAnswers, handleTimeSignatureAnswer, selectedTimeSignature }) {
     return (
         <Grid container spacing={2} direction="row" alignItems="center">
             {timeSignatureAnswers.map((timeSignature) => (
                 <Grid item key={timeSignature}>
                     <Button
-                        variant="outlined"
+                        variant={selectedTimeSignature === timeSignature ? "outlined" : "contained"}
                         className="tempo-trainer-button"
                         onClick={() => handleTimeSignatureAnswer(timeSignature)}
                     >
@@ -119,6 +120,7 @@ function TimeSignaturesAnswerButtons({ timeSignatureAnswers, handleTimeSignature
 TimeSignaturesAnswerButtons.propTypes = {
     timeSignatureAnswers: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleTimeSignatureAnswer: PropTypes.func.isRequired,
+    selectedTimeSignature: PropTypes.string,
 };
 
 function TempoTrainerStatistics({ rows }) {
@@ -538,6 +540,8 @@ class TempoTrainer extends Component {
             timeSignaturePlaying,
             lastAnswer,
             isFirstGame,
+            selectedBpm,
+            selectedTimeSignature,
         } = this.state;
 
         return (
@@ -609,6 +613,7 @@ class TempoTrainer extends Component {
                                     <BpmsAnswerButtons
                                         bpmAnswers={bpmAnswers}
                                         handleBpmAnswer={this.handleBpmAnswer}
+                                        selectedBpm={selectedBpm}
                                     />
                                 </Grid>
 
@@ -616,6 +621,7 @@ class TempoTrainer extends Component {
                                     <TimeSignaturesAnswerButtons
                                         timeSignatureAnswers={timeSignatureAnswers}
                                         handleTimeSignatureAnswer={this.handleTimeSignatureAnswer}
+                                        selectedTimeSignature={selectedTimeSignature}
                                     />
                                 </Grid>
                             </Grid>
