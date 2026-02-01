@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { pink, blue } from '@mui/material/colors';
@@ -10,6 +10,7 @@ import TempoTrainer from './components/TempoTrainer';
 // import { AuthProvider } from './firebase/AuthContext';
 import logo from './logo.svg';
 import './App.css';
+import { sessionManager } from './system/SessionManager';
 
 // Material UI theme
 const theme = createTheme({
@@ -37,6 +38,14 @@ const Home: React.FC = () => (
 );
 
 const App: React.FC = () => {
+  useEffect(() => {
+    sessionManager.startSession();
+
+    return () => {
+      sessionManager.endSession();
+    };
+  }, []);
+
   return (
     // <AuthProvider>
     <ThemeProvider theme={theme}>
