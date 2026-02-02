@@ -29,6 +29,8 @@ import shuffleArray from '../util/shuffleArray';
 
 import './TempoTrainer.css';
 
+import { startQuestion } from '../system/StatsHelpers';
+
 function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
     return (
         <>
@@ -252,34 +254,25 @@ class TempoTrainer extends Component {
         const bpm = this.getNextBpm();
         const timeSignature = this.getNextTimeSignature();
 
+        const statsKey = `${bpm}|${timeSignature}`;
+
         const bpmAnswers = this.getShuffledBpms(this.state.bpms, bpm, this.state.numBpmChoices);
 
         const timeSignatureAnswers = this.getShuffledTimeSignatures(this.state.timeSignatures, timeSignature, this.state.numTimeSignatureChoices);
 
-        const statsKey = `${bpm}|${timeSignature}`;
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
-
-            if (!stats[statsKey]) {
-                stats[statsKey] = {
-                    bpm,
-                    timeSignature,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            const entry = { ...stats[statsKey] };
-            entry.questions++;
-            stats[statsKey] = entry;
+            const {
+                stats: updatedStats, gameStartTime
+            } = startQuestion(
+                prev.stats,
+                statsKey,
+                { bpm, timeSignature }
+            );
 
             return {
-                stats,
-                gameStartTime: performance.now(),
+                stats: updatedStats,
+                gameStartTime,
                 isStarted: true,
                 bpmPlaying: bpm,
                 timeSignaturePlaying: timeSignature,
