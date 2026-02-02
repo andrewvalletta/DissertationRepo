@@ -45,3 +45,23 @@ export function startQuestion(stats, key, metadata = {}) {
         gameStartTime: performance.now()
     };
 }
+
+export function registerAttempt(stats, key, gameStartTime, isCorrect) {
+    const entry = stats[key];
+
+    if (!entry) {
+        throw new Error(`Stats entry for key "${key}" does not exist.`);
+    }
+
+    const updatedEntry = {
+        ...entry,
+        tries: entry.tries + 1,
+        correct: isCorrect ? entry.correct + 1 : entry.correct,
+        totalTime: isCorrect ? entry.totalTime + (performance.now() - gameStartTime) : entry.totalTime
+    };
+
+    return {
+        ...stats,
+        [key]: updatedEntry
+    };
+}
