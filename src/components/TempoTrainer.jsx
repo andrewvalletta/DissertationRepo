@@ -29,7 +29,7 @@ import shuffleArray from '../util/shuffleArray';
 
 import './TempoTrainer.css';
 
-import { startQuestion } from '../system/StatsHelpers';
+import { startQuestion, registerAttempt } from '../system/StatsHelpers';
 
 function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
     return (
@@ -265,7 +265,7 @@ class TempoTrainer extends Component {
             const {
                 stats: updatedStats, gameStartTime
             } = startQuestion(
-                prev.stats,
+                prev.stats ?? {},
                 statsKey,
                 { bpm, timeSignature }
             );
@@ -431,30 +431,23 @@ class TempoTrainer extends Component {
             return;
         }
 
-        const now = performance.now();
         const statsKey = this.getStatsKey();
+        const isAnswerCorrect = selectedBpm === bpmPlaying && selectedTimeSignature === timeSignaturePlaying;
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
-            const entry = { ...stats[statsKey] };  // Create a copy of the entry
-            stats[statsKey] = entry;                // Replace the reference
-
-            entry.tries++;
-
-            if (selectedBpm === bpmPlaying && selectedTimeSignature === timeSignaturePlaying) {
-                entry.correct++;
-                entry.totalTime += now - gameStartTime;
-
-                return {
-                    stats,
-                    isCorrect: true,
-                    lastAnswer: 1,
-                };
-            }
+            const {
+                stats: updatedStats
+            } = registerAttempt(
+                prev.stats ?? {},
+                statsKey,
+                gameStartTime,
+                isAnswerCorrect,
+            );
 
             return {
-                stats,
-                lastAnswer: 0,
+                stats: updatedStats,
+                isCorrect: isAnswerCorrect,
+                lastAnswer: isAnswerCorrect ? 1 : 0,
             };
         });
     };

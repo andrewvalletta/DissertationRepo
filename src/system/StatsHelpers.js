@@ -47,6 +47,7 @@ export function startQuestion(stats, key, metadata = {}) {
 }
 
 export function registerAttempt(stats, key, gameStartTime, isCorrect) {
+    // Stats entry should already exist from startQuestion
     const entry = stats[key];
 
     if (!entry) {
@@ -61,8 +62,10 @@ export function registerAttempt(stats, key, gameStartTime, isCorrect) {
     };
 
     return {
-        ...stats,
-        [key]: updatedEntry
+        stats: {
+            ...stats,
+            [key]: updatedEntry
+        }
     };
 }
 
