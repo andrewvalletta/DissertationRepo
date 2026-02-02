@@ -65,3 +65,21 @@ export function registerAttempt(stats, key, gameStartTime, isCorrect) {
         [key]: updatedEntry
     };
 }
+
+export function skipQuestion(stats, key) {
+    const entry = stats[key];
+
+    if (!entry) {
+        throw new Error(`Stats entry for key "${key}" does not exist.`);
+    }
+
+    const updatedEntry = {
+        ...entry,
+        skips: entry.skips + 1
+    };
+
+    return {
+        ...stats,
+        [key]: updatedEntry
+    };
+}
