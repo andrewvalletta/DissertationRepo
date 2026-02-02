@@ -29,7 +29,7 @@ import shuffleArray from '../util/shuffleArray';
 
 import './TempoTrainer.css';
 
-import { startQuestion, registerAttempt } from '../system/StatsHelpers';
+import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
 
 function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
     return (
@@ -339,64 +339,45 @@ class TempoTrainer extends Component {
 
         const prevStatsKey = `${bpmPlaying}|${timeSignaturePlaying}`;
 
+        // Select new bpm and time signature
+        const nextBpm = this.getNextBpm();
+        const nextTimeSignature = this.getNextTimeSignature();
+
+        // Set up the next question
+        const nextStatsKey = `${nextBpm}|${nextTimeSignature}`;
+
         this.setState(prev => {
-            const stats = { ...prev.stats };
+            let stats = prev.stats;
 
-            // Safeguard in case stats entry does not exist
-            if (!stats[prevStatsKey]) {
-                stats[prevStatsKey] = {
-                    bpm: bpmPlaying,
-                    timeSignature: timeSignaturePlaying,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment skips if the previous question was not answered correctly
+            // Finalise previous question
             if (!isCorrect) {
-                const prevEntry = { ...stats[prevStatsKey] };
-                prevEntry.skips++;
-                stats[prevStatsKey] = prevEntry;
+                stats = skipQuestion(stats, prevStatsKey);
             }
 
-            // Select new bpm and time signature
-            const nextBpm = this.getNextBpm();
-            const nextTimeSignature = this.getNextTimeSignature();
-
-            const newStatsKey = `${nextBpm}|${nextTimeSignature}`;
-
-            // Ensure stats entry exists for the new question
-            if (!stats[newStatsKey]) {
-                stats[newStatsKey] = {
-                    bpm: nextBpm,
-                    timeSignature: nextTimeSignature,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment question count for the new combination i.e. question
-            const newEntry = { ...stats[newStatsKey] };
-            newEntry.questions++;
-            stats[newStatsKey] = newEntry;
+            // Start next question
+            const {
+                stats: updatedStats,
+                gameStartTime
+            } = startQuestion(
+                stats,
+                nextStatsKey,
+                { bpm: nextBpm, timeSignature: nextTimeSignature }
+            );
 
             return {
-                stats,
+                stats: updatedStats,
+
                 bpmPlaying: nextBpm,
                 timeSignaturePlaying: nextTimeSignature,
+
                 bpmAnswers: this.getShuffledBpms(bpms, nextBpm, numBpmChoices),
                 timeSignatureAnswers: this.getShuffledTimeSignatures(timeSignatures, nextTimeSignature, numTimeSignatureChoices),
+
                 selectedBpm: null,
                 selectedTimeSignature: null,
                 isCorrect: false,
                 lastAnswer: -1,
-                gameStartTime: performance.now(),
+                gameStartTime,
             };
         }, this.handlePlayMelody);
     };
