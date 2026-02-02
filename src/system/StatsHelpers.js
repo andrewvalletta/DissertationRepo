@@ -24,3 +24,24 @@ export function initialiseStatsEntry(stats, key, metadata = {}) {
         [key]: newEntry
     };
 }
+
+export function startQuestion(stats, key, metadata = {}) {
+    // Ensure stats entry exists
+    const withEntry = initialiseStatsEntry(stats, key, metadata);
+
+    const entry = withEntry[key];
+
+    // Create updated entry with incremented question count
+    const updatedEntry = {
+        ...entry,
+        questions: entry.questions + 1
+    };
+
+    return {
+        stats: {
+            ...withEntry,
+            [key]: updatedEntry
+        },
+        gameStartTime: performance.now()
+    };
+}
