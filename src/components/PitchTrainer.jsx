@@ -221,29 +221,20 @@ class PitchTrainer extends Component {
     };
 
     handleGameStop = () => {
+        const {
+            tonePlaying,
+            isCorrect
+        } = this.state;
+
         // Current stats key e.g. 'C'
-        const statsKey = this.state.tonePlaying;
+        const statsKey = tonePlaying;
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
+            let stats = prev.stats;
 
-            // Initialise stats entry if not present
-            if (!stats[statsKey]) {
-                stats[statsKey] = {
-                    note: prev.tonePlaying,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment skips if the last question was not answered correctly
-            if (!prev.isCorrect) {
-                const entry = { ...stats[statsKey] };
-                entry.skips++;
-                stats[statsKey] = entry;
+            // Finalise current question
+            if (!isCorrect) {
+                stats = skipQuestion(stats, statsKey);
             }
 
             return {
@@ -253,6 +244,7 @@ class PitchTrainer extends Component {
                 isFirstGame: false,
                 lastAnswer: -1,
                 gameStartTime: 0,
+                selectedAnswer: null,
             };
         });
     };
