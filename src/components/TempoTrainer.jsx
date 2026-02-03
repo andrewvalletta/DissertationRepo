@@ -291,26 +291,11 @@ class TempoTrainer extends Component {
         const statsKey = this.getStatsKey();
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
+            let stats = prev.stats;
 
-            // Safeguard in case stats entry does not exist
-            if (!stats[statsKey]) {
-                stats[statsKey] = {
-                    bpm: prev.bpmPlaying,
-                    timeSignature: prev.timeSignaturePlaying,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment skips if the previous question was not answered correctly
+            // Finalise previous question
             if (!prev.isCorrect) {
-                const entry = { ...stats[statsKey] };
-                entry.skips++;
-                stats[statsKey] = entry;
+                stats = skipQuestion(stats, statsKey);
             }
 
             return {
