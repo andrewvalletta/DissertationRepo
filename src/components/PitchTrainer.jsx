@@ -319,33 +319,32 @@ class PitchTrainer extends Component {
     };
 
     handleGameAnswer = (note) => {
-        if (this.state.isCorrect) return;
+        if (this.state.isCorrect) {
+            return;
+        }
 
-        const now = performance.now();
-        const statsKey = this.state.tonePlaying;
+        const {
+            tonePlaying,
+            gameStartTime,
+        } = this.state;
+
+        const statsKey = tonePlaying;
+        const isAnswerCorrect = note === tonePlaying;
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
-            const entry = { ...stats[statsKey] };
-            stats[statsKey] = entry;
-
-            entry.tries++;
-
-            if (note === prev.tonePlaying) {
-                entry.correct++;
-                entry.totalTime += now - prev.gameStartTime;
-
-                return {
-                    stats,
-                    isCorrect: true,
-                    lastAnswer: 1,
-                    selectedAnswer: note,
-                };
-            }
+            const {
+                stats: updatedStats
+            } = registerAttempt(
+                prev.stats ?? {},
+                statsKey,
+                gameStartTime,
+                isAnswerCorrect
+            );
 
             return {
-                stats,
-                lastAnswer: 0,
+                stats: updatedStats,
+                isCorrect: isAnswerCorrect,
+                lastAnswer: isAnswerCorrect ? 1 : 0,
                 selectedAnswer: note,
             };
         });
