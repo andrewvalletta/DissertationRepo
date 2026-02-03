@@ -258,62 +258,48 @@ class PitchTrainer extends Component {
     };
 
     handleNext = () => {
-        const { tonePlaying, isCorrect } = this.state;
+        const {
+            tonePlaying,
+            isCorrect
+        } = this.state;
+
         const prevStatsKey = tonePlaying;
 
+        // Select new tone
+        const nextTone = this.getNextTone();
+
+        // Set up the next question
+        const newStatsKey = nextTone;
+
         this.setState(prev => {
-            const stats = { ...prev.stats };
+            let stats = prev.stats;
 
-            // Initialise stats entry if not present
-            if (!stats[prevStatsKey]) {
-                stats[prevStatsKey] = {
-                    note: tonePlaying,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment skips if the previous question was not answered correctly
+            // Finalise previous question
             if (!isCorrect) {
-                const prevEntry = { ...stats[prevStatsKey] };
-                prevEntry.skips++;
-                stats[prevStatsKey] = prevEntry;
+                stats = skipQuestion(stats, prevStatsKey);
             }
 
-            // Select new tone
-            const nextTone = this.getNextTone();
-
-            const newStatsKey = nextTone;
-
-            // Ensure stats entry exists for new question
-            if (!stats[newStatsKey]) {
-                stats[newStatsKey] = {
-                    note: nextTone,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            // Increment question count for the new tone i.e. question
-            const newEntry = { ...stats[newStatsKey] };
-            newEntry.questions++;
-            stats[newStatsKey] = newEntry;
+            // Start next question
+            const {
+                stats: updatedStats,
+                gameStartTime
+            } = startQuestion(
+                stats,
+                newStatsKey,
+                { note: newStatsKey }
+            );
 
             return {
-                stats,
+                stats: updatedStats,
+
                 tonePlaying: nextTone,
                 notePlaying: this.getNextNote(nextTone),
                 answers: this.getShuffledAnswers(prev.tones, nextTone, prev.numChoices),
-                gameStartTime: performance.now(),
-                lastAnswer: -1,
-                isCorrect: false,
+
                 selectedAnswer: null,
+                isCorrect: false,
+                lastAnswer: -1,
+                gameStartTime,
             };
         }, this.handlePlayNote);
     };
