@@ -460,18 +460,6 @@ class TempoTrainer extends Component {
         return shuffleArray([correctTimeSignature, ...selectedTimeSignatures]);
     };
 
-    ensureStatsEntry = (key) => {
-        if (!this.state.stats[key]) {
-            this.state.stats[key] = {
-                questions: 0,
-                skips: 0,
-                tries: 0,
-                correct: 0,
-                totalTime: 0,
-            };
-        }
-    };
-
     getStatsKey = () => {
         const { bpmPlaying, timeSignaturePlaying } = this.state;
         return `${bpmPlaying}|${timeSignaturePlaying}`;
