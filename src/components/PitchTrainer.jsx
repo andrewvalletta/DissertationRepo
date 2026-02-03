@@ -30,6 +30,8 @@ import shuffleArray from '../util/shuffleArray';
 
 import './PitchTrainer.css';
 
+import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
+
 function TonesCheckboxes({ tones, handleSelection }) {
     return (
         <>
@@ -126,21 +128,21 @@ class PitchTrainer extends Component {
 
             isLoaded: false,
             isStarted: false,
-            
+
             numChoices: 3,
-            
+
             tonePlaying: 'C',
             notePlaying: 'C4',
-            
+
             gameStartTime: 0,
-            
+
             isCorrect: false,
             lastAnswer: -1, // -1: no ans, 0: wrong ans, 1: correct ans
             answers: [],
             selectedAnswer: null,
-            
+
             isFirstGame: true,
-            
+
             stats: {},
         };
 
@@ -196,26 +198,17 @@ class PitchTrainer extends Component {
         const answers = this.getShuffledAnswers(this.state.tones, tone, this.state.numChoices);
 
         this.setState(prev => {
-            const stats = { ...prev.stats };
-
-            if (!stats[tone]) {
-                stats[tone] = {
-                    note: tone,
-                    questions: 0,
-                    skips: 0,
-                    tries: 0,
-                    correct: 0,
-                    totalTime: 0,
-                };
-            }
-
-            const entry = { ...stats[tone] };
-            entry.questions++;
-            stats[tone] = entry;
+            const {
+                stats: updatedStats, gameStartTime
+            } = startQuestion(
+                prev.stats ?? {},
+                tone,
+                { note: tone }
+            );
 
             return {
-                stats,
-                gameStartTime: performance.now(),
+                stats: updatedStats,
+                gameStartTime,
                 isStarted: true,
                 tonePlaying: tone,
                 notePlaying: this.getNextNote(tone),
@@ -378,7 +371,7 @@ class PitchTrainer extends Component {
         const selected = shuffleArray(available).slice(0, count - 1);
         return shuffleArray([correctTone, ...selected]);
     };
-    
+
     // return an array of objects representing rows of the stat table
     getStatRows = () => {
         const { stats } = this.state;
