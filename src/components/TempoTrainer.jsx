@@ -31,6 +31,10 @@ import './TempoTrainer.css';
 
 import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
 
+import { EventLogger } from '../system/EventLogger';
+import { SystemEvents } from '../system/SystemEvents';
+import { tempoTaskId } from '../system/taskIds';
+
 function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
     return (
         <>
@@ -260,7 +264,6 @@ class TempoTrainer extends Component {
 
         const timeSignatureAnswers = this.getShuffledTimeSignatures(this.state.timeSignatures, timeSignature, this.state.numTimeSignatureChoices);
 
-
         this.setState(prev => {
             const {
                 stats: updatedStats, gameStartTime
@@ -269,6 +272,13 @@ class TempoTrainer extends Component {
                 statsKey,
                 { bpm, timeSignature }
             );
+
+            // LOG: Task start
+            EventLogger.log({
+                eventType: SystemEvents.TASK_START,
+                taskId: tempoTaskId(bpm, timeSignature),
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,
@@ -339,6 +349,15 @@ class TempoTrainer extends Component {
                 stats = skipQuestion(stats, prevStatsKey);
             }
 
+            // LOG: Task skipped if not correct
+            if (bpmPlaying && timeSignaturePlaying && !isCorrect) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_SKIP,
+                    taskId: tempoTaskId(bpmPlaying, timeSignaturePlaying),
+                    agentProfile: 'human',
+                });
+            }
+
             // Start next question
             const {
                 stats: updatedStats,
@@ -348,6 +367,13 @@ class TempoTrainer extends Component {
                 nextStatsKey,
                 { bpm: nextBpm, timeSignature: nextTimeSignature }
             );
+
+            // LOG: Task start
+            EventLogger.log({
+                eventType: SystemEvents.TASK_START,
+                taskId: tempoTaskId(nextBpm, nextTimeSignature),
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,
@@ -400,6 +426,9 @@ class TempoTrainer extends Component {
         const statsKey = this.getStatsKey();
         const isAnswerCorrect = selectedBpm === bpmPlaying && selectedTimeSignature === timeSignaturePlaying;
 
+        const taskId = tempoTaskId(bpmPlaying, timeSignaturePlaying);
+        const responseTimeMs = performance.now() - gameStartTime;
+
         this.setState(prev => {
             const {
                 stats: updatedStats
@@ -409,6 +438,23 @@ class TempoTrainer extends Component {
                 gameStartTime,
                 isAnswerCorrect,
             );
+
+            // LOG: Attempt
+            EventLogger.log({
+                eventType: SystemEvents.TASK_ATTEMPT,
+                taskId,
+                responseTimeMs,
+                success: isAnswerCorrect,
+                agentProfile: 'human',
+            });
+
+            // LOG: outcome
+            EventLogger.log({
+                eventType: isAnswerCorrect ? SystemEvents.TASK_SUCCESS : SystemEvents.TASK_FAILURE,
+                taskId,
+                responseTimeMs,
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,
