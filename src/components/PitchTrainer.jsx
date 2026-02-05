@@ -276,12 +276,23 @@ class PitchTrainer extends Component {
         // Set up the next question
         const newStatsKey = nextTone;
 
+        const taskId = pitchTaskId(nextTone);
+
         this.setState(prev => {
             let stats = prev.stats;
 
             // Finalise previous question
             if (!isCorrect) {
                 stats = skipQuestion(stats, prevStatsKey);
+            }
+
+            // LOG: Task skipped if not correct
+            if (tonePlaying && !isCorrect) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_SKIP,
+                    taskId: pitchTaskId(tonePlaying),
+                    agentProfile: 'human',
+                });
             }
 
             // Start next question
@@ -293,6 +304,13 @@ class PitchTrainer extends Component {
                 newStatsKey,
                 { note: newStatsKey }
             );
+
+            // LOG: Task start
+            EventLogger.log({
+                eventType: SystemEvents.TASK_START,
+                taskId,
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,
