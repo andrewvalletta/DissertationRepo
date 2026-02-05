@@ -32,6 +32,10 @@ import './PitchTrainer.css';
 
 import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
 
+import { EventLogger } from '../system/EventLogger';
+import { SystemEvents } from '../system/SystemEvents';
+import { pitchTaskId } from '../system/taskIds';
+
 function TonesCheckboxes({ tones, handleSelection }) {
     return (
         <>
@@ -197,6 +201,8 @@ class PitchTrainer extends Component {
         const tone = this.getNextTone();
         const answers = this.getShuffledAnswers(this.state.tones, tone, this.state.numChoices);
 
+        const taskId = pitchTaskId(tone);
+
         this.setState(prev => {
             const {
                 stats: updatedStats, gameStartTime
@@ -205,6 +211,13 @@ class PitchTrainer extends Component {
                 tone,
                 { note: tone }
             );
+
+            // LOG: Task start
+            EventLogger.log({
+                eventType: SystemEvents.TASK_START,
+                taskId,
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,
@@ -309,6 +322,9 @@ class PitchTrainer extends Component {
         const statsKey = tonePlaying;
         const isAnswerCorrect = note === tonePlaying;
 
+        const taskId = pitchTaskId(tonePlaying);
+        const responseTimeMs = performance.now() - gameStartTime;
+
         this.setState(prev => {
             const {
                 stats: updatedStats
@@ -318,6 +334,23 @@ class PitchTrainer extends Component {
                 gameStartTime,
                 isAnswerCorrect
             );
+
+            // LOG: Attempt
+            EventLogger.log({
+                eventType: SystemEvents.TASK_ATTEMPT,
+                taskId,
+                responseTimeMs,
+                success: isAnswerCorrect,
+                agentProfile: 'human',
+            });
+
+            // LOG: outcome
+            EventLogger.log({
+                eventType: isAnswerCorrect ? SystemEvents.TASK_SUCCESS : SystemEvents.TASK_FAILURE,
+                taskId,
+                responseTimeMs,
+                agentProfile: 'human',
+            });
 
             return {
                 stats: updatedStats,

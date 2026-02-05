@@ -18,6 +18,9 @@ class EventLoggerClass {
             timestamp: new Date().toISOString(),
         };
 
+        // TEMPORARY: Also log to console for immediate visibility
+        console.log('Event Logged:', enrichedEvent);
+
         this.events.push(enrichedEvent);
     };
 
