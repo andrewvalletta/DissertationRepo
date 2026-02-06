@@ -28,7 +28,7 @@ import { instrument as soundfontInstrument } from 'soundfont-player';
 import { OCTAVE_NUMBERS, TONES } from '../constants/NOTES';
 import shuffleArray from '../util/shuffleArray';
 
-import './PitchTrainer.css';
+import './Trainer.css';
 
 import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
 
@@ -73,7 +73,7 @@ function TonesAnswerButtons({ answers, handleGameAnswer, selectedAnswer }) {
                 <Grid item key={note}>
                     <Button
                         variant={selectedAnswer === note ? "outlined" : "contained"}
-                        className="pitch-trainer-button"
+                        className="trainer-button"
                         onClick={() => handleGameAnswer(note)}
                     >
                         {note}
@@ -92,7 +92,7 @@ TonesAnswerButtons.propTypes = {
 
 function PitchTrainerStatistics({ rows }) {
     return (
-        <Table className="pitch-trainer-stat-table">
+        <Table className="trainer-stat-table">
             <TableHead>
                 <TableRow>
                     <TableCell>Notes Tested</TableCell>

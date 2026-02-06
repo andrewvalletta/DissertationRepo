@@ -27,7 +27,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { BPMS, TIME_SIGNATURES } from '../constants/TEMPOS';
 import shuffleArray from '../util/shuffleArray';
 
-import './TempoTrainer.css';
+import './Trainer.css';
 
 import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHelpers';
 
@@ -88,7 +88,7 @@ function BpmsAnswerButtons({ bpmAnswers, handleBpmAnswer, selectedBpm }) {
                 <Grid item key={bpm}>
                     <Button
                         variant={selectedBpm === bpm ? "outlined" : "contained"}
-                        className="tempo-trainer-button"
+                        className="trainer-button"
                         onClick={() => handleBpmAnswer(bpm)}
                     >
                         {bpm}
@@ -112,7 +112,7 @@ function TimeSignaturesAnswerButtons({ timeSignatureAnswers, handleTimeSignature
                 <Grid item key={timeSignature}>
                     <Button
                         variant={selectedTimeSignature === timeSignature ? "outlined" : "contained"}
-                        className="tempo-trainer-button"
+                        className="trainer-button"
                         onClick={() => handleTimeSignatureAnswer(timeSignature)}
                     >
                         {timeSignature}
@@ -131,7 +131,7 @@ TimeSignaturesAnswerButtons.propTypes = {
 
 function TempoTrainerStatistics({ rows }) {
     return (
-        <Table className="tempo-trainer-stat-table">
+        <Table className="trainer-stat-table">
             <TableHead>
                 <TableRow>
                     <TableCell>BPM</TableCell>
