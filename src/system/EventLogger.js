@@ -38,6 +38,26 @@ class EventLoggerClass {
     clear() {
         this.events = [];
     };
+
+    logSessionEnd() {
+        const sessionId = sessionManager.getSessionId();
+
+        if (!sessionId) {
+            throw new Error('No active session. Cannot log session end.');
+        }
+
+        const summary = this.gamificationEngine.getSessionSummary();
+
+        const event = {
+            eventType: 'SESSION_END',
+            ...summary,
+            sessionId,
+            timestamp: new Date().toISOString(),
+        };
+
+        console.log('Session End Event Logged:', event);
+        this.events.push(event);
+    };  
 }
 
 export const EventLogger = new EventLoggerClass();

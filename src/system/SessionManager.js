@@ -27,9 +27,7 @@ class SessionManager {
             return;
         };
 
-        EventLogger.log({
-            eventType: SystemEvents.SESSION_END,
-        });
+        EventLogger.logSessionEnd();
 
         this.active = false;
         this.sessionId = null;

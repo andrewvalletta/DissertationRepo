@@ -99,4 +99,13 @@ export class GamificationEngine {
             progressDelta: this.state.progressDelta,
         };
     }
+
+    getSessionSummary() {
+        return {
+            finalScore: this.state.score,
+            finalLevel: this.state.level,
+            totalProgress: this.state.totalProgress,
+            achievementsUnlocked: [...this.state.achievements],
+        };
+    }
 }
