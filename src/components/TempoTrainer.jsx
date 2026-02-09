@@ -171,8 +171,8 @@ class TempoTrainer extends Component {
             //    [60,   80,   100,   120,   140,   160]
             bpms: [true, false, false, true, false, false],
 
-            //              ['2/4', '3/4', '4/4']
-            timeSignatures: [true, false, true],
+            //              ['2/4', '3/4', '4/4', '6/8']
+            timeSignatures: [true, false, true, false],
 
             isLoaded: true,
             isStarted: false,
