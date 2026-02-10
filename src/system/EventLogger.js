@@ -35,6 +35,10 @@ class EventLoggerClass {
         return [...this.events];
     };
 
+    getGamificationState() {
+        return this.gamificationEngine.getState();
+    };
+
     clear() {
         this.events = [];
     };

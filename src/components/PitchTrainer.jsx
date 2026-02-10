@@ -35,6 +35,7 @@ import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHel
 import { EventLogger } from '../system/EventLogger';
 import { SystemEvents } from '../system/SystemEvents';
 import { pitchTaskId } from '../system/taskIds';
+import { LEVEL_CONFIG } from '../system/LevelConfig';
 
 function TonesCheckboxes({ tones, handleSelection }) {
     return (
@@ -126,14 +127,18 @@ PitchTrainerStatistics.propTypes = {
 class PitchTrainer extends Component {
     constructor(props) {
         super(props);
+        const initialLevel = EventLogger.getGamificationState()?.level ?? 1;
+        const levelState = this.getLevelState(initialLevel);
         this.state = {
             //     ['C',  'C#',  'D',  'D#',  'E',   'F',   'F#',  'G',  'G#',  'A',  'A#',  'B']
-            tones: [true, false, true, false, false, false, false, true, false, true, false, false],
+            tones: levelState.tones,
 
             isLoaded: false,
             isStarted: false,
 
-            numChoices: 3,
+            numChoices: levelState.numChoices,
+
+            currentLevel: initialLevel,
 
             tonePlaying: 'C',
             notePlaying: 'C4',
@@ -170,6 +175,22 @@ class PitchTrainer extends Component {
         this._isMounted = false;
     }
 
+    getActiveLevel = () => EventLogger.getGamificationState()?.level ?? this.state.currentLevel ?? 1;
+
+    getLevelState = (level) => {
+        const config = LEVEL_CONFIG[level] ?? LEVEL_CONFIG[1];
+        const allowedNotes = config.pitch.allowedNotes;
+        const poolSize = Math.min(config.pitch.numNotesInPool, allowedNotes.length);
+        const pool = shuffleArray([...allowedNotes]).slice(0, poolSize);
+        const poolSet = new Set(pool);
+
+        return {
+            tones: TONES.map((tone) => poolSet.has(tone)),
+            numChoices: Math.min(config.pitch.answerChoices, pool.length),
+            currentLevel: level,
+        };
+    };
+
     handleSelection = (name) => (event) => {
         this.setState((prev) => {
             const tones = [...prev.tones];
@@ -198,8 +219,10 @@ class PitchTrainer extends Component {
     };
 
     handleGameStart = () => {
-        const tone = this.getNextTone();
-        const answers = this.getShuffledAnswers(this.state.tones, tone, this.state.numChoices);
+        const level = this.getActiveLevel();
+        const levelState = this.getLevelState(level);
+        const tone = this.getNextTone(levelState.tones);
+        const answers = this.getShuffledAnswers(levelState.tones, tone, levelState.numChoices);
 
         const taskId = pitchTaskId(tone);
 
@@ -229,6 +252,9 @@ class PitchTrainer extends Component {
                 lastAnswer: -1,
                 answers,
                 selectedAnswer: null,
+                tones: levelState.tones,
+                numChoices: levelState.numChoices,
+                currentLevel: level,
             };
         }, this.handlePlayNote);
     };
@@ -270,8 +296,13 @@ class PitchTrainer extends Component {
 
         const prevStatsKey = tonePlaying;
 
+        const level = this.getActiveLevel();
+        const levelState = level !== this.state.currentLevel ? this.getLevelState(level) : null;
+        const activeTones = levelState ? levelState.tones : this.state.tones;
+        const activeChoices = levelState ? levelState.numChoices : this.state.numChoices;
+
         // Select new tone
-        const nextTone = this.getNextTone();
+        const nextTone = this.getNextTone(activeTones);
 
         // Set up the next question
         const newStatsKey = nextTone;
@@ -317,12 +348,17 @@ class PitchTrainer extends Component {
 
                 tonePlaying: nextTone,
                 notePlaying: this.getNextNote(nextTone),
-                answers: this.getShuffledAnswers(prev.tones, nextTone, prev.numChoices),
+                answers: this.getShuffledAnswers(activeTones, nextTone, activeChoices),
 
                 selectedAnswer: null,
                 isCorrect: false,
                 lastAnswer: -1,
                 gameStartTime,
+                currentLevel: level,
+                ...(levelState ? {
+                    tones: levelState.tones,
+                    numChoices: levelState.numChoices,
+                } : {}),
             };
         }, this.handlePlayNote);
     };
@@ -384,8 +420,8 @@ class PitchTrainer extends Component {
     };
 
     // randomly chose a note from the tones user chooses
-    getNextTone = () => {
-        const available = TONES.filter((_, i) => this.state.tones[i]);
+    getNextTone = (tonesSelection = this.state.tones) => {
+        const available = TONES.filter((_, i) => tonesSelection[i]);
         return available[Math.floor(Math.random() * available.length)];
     };
 

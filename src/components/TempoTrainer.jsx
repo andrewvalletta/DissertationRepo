@@ -34,6 +34,7 @@ import { startQuestion, registerAttempt, skipQuestion } from '../system/StatsHel
 import { EventLogger } from '../system/EventLogger';
 import { SystemEvents } from '../system/SystemEvents';
 import { tempoTaskId } from '../system/taskIds';
+import { LEVEL_CONFIG } from '../system/LevelConfig';
 
 function TemposCheckboxes({ bpms, timeSignatures, handleSelection }) {
     return (
@@ -167,18 +168,22 @@ TempoTrainerStatistics.propTypes = {
 class TempoTrainer extends Component {
     constructor(props) {
         super(props);
+        const initialLevel = EventLogger.getGamificationState()?.level ?? 1;
+        const levelState = this.getLevelState(initialLevel);
         this.state = {
             //    [60,   80,   100,   120,   140,   160]
-            bpms: [true, false, false, true, false, false],
+            bpms: levelState.bpms,
 
             //              ['2/4', '3/4', '4/4', '6/8']
-            timeSignatures: [true, false, true, false],
+            timeSignatures: levelState.timeSignatures,
 
             isLoaded: true,
             isStarted: false,
 
-            numBpmChoices: 2,
-            numTimeSignatureChoices: 2,
+            numBpmChoices: levelState.numBpmChoices,
+            numTimeSignatureChoices: levelState.numTimeSignatureChoices,
+
+            currentLevel: initialLevel,
 
             bpmPlaying: 60,
             timeSignaturePlaying: '4/4',
@@ -232,6 +237,26 @@ class TempoTrainer extends Component {
         });
     };
 
+    getActiveLevel = () => EventLogger.getGamificationState()?.level ?? this.state.currentLevel ?? 1;
+
+    getLevelState = (level) => {
+        const config = LEVEL_CONFIG[level] ?? LEVEL_CONFIG[1];
+        const bpmPoolSize = Math.min(config.tempo.bpmChoices, config.tempo.allowedBpms.length);
+        const timeSignaturePoolSize = Math.min(config.tempo.timeSignatureChoices, config.tempo.allowedTimeSignatures.length);
+        const bpmPool = shuffleArray([...config.tempo.allowedBpms]).slice(0, bpmPoolSize);
+        const timeSignaturePool = shuffleArray([...config.tempo.allowedTimeSignatures]).slice(0, timeSignaturePoolSize);
+        const bpmPoolSet = new Set(bpmPool);
+        const timeSignaturePoolSet = new Set(timeSignaturePool);
+
+        return {
+            bpms: BPMS.map((bpm) => bpmPoolSet.has(bpm)),
+            timeSignatures: TIME_SIGNATURES.map((ts) => timeSignaturePoolSet.has(ts)),
+            numBpmChoices: Math.min(config.tempo.bpmChoices, bpmPool.length),
+            numTimeSignatureChoices: Math.min(config.tempo.timeSignatureChoices, timeSignaturePool.length),
+            currentLevel: level,
+        };
+    };
+
     handleNumChoices = (event) => {
         const { name, value } = event.target;
 
@@ -255,14 +280,16 @@ class TempoTrainer extends Component {
     };
 
     handleGameStart = () => {
-        const bpm = this.getNextBpm();
-        const timeSignature = this.getNextTimeSignature();
+        const level = this.getActiveLevel();
+        const levelState = this.getLevelState(level);
+        const bpm = this.getNextBpm(levelState.bpms);
+        const timeSignature = this.getNextTimeSignature(levelState.timeSignatures);
 
         const statsKey = `${bpm}|${timeSignature}`;
 
-        const bpmAnswers = this.getShuffledBpms(this.state.bpms, bpm, this.state.numBpmChoices);
+        const bpmAnswers = this.getShuffledBpms(levelState.bpms, bpm, levelState.numBpmChoices);
 
-        const timeSignatureAnswers = this.getShuffledTimeSignatures(this.state.timeSignatures, timeSignature, this.state.numTimeSignatureChoices);
+        const timeSignatureAnswers = this.getShuffledTimeSignatures(levelState.timeSignatures, timeSignature, levelState.numTimeSignatureChoices);
 
         this.setState(prev => {
             const {
@@ -292,6 +319,11 @@ class TempoTrainer extends Component {
                 lastAnswer: -1,
                 bpmAnswers,
                 timeSignatureAnswers,
+                bpms: levelState.bpms,
+                timeSignatures: levelState.timeSignatures,
+                numBpmChoices: levelState.numBpmChoices,
+                numTimeSignatureChoices: levelState.numTimeSignatureChoices,
+                currentLevel: level,
             };
         }, this.handlePlayMelody);
     };
@@ -334,9 +366,16 @@ class TempoTrainer extends Component {
 
         const prevStatsKey = `${bpmPlaying}|${timeSignaturePlaying}`;
 
+        const level = this.getActiveLevel();
+        const levelState = level !== this.state.currentLevel ? this.getLevelState(level) : null;
+        const activeBpms = levelState ? levelState.bpms : bpms;
+        const activeTimeSignatures = levelState ? levelState.timeSignatures : timeSignatures;
+        const activeBpmChoices = levelState ? levelState.numBpmChoices : numBpmChoices;
+        const activeTimeSignatureChoices = levelState ? levelState.numTimeSignatureChoices : numTimeSignatureChoices;
+
         // Select new bpm and time signature
-        const nextBpm = this.getNextBpm();
-        const nextTimeSignature = this.getNextTimeSignature();
+        const nextBpm = this.getNextBpm(activeBpms);
+        const nextTimeSignature = this.getNextTimeSignature(activeTimeSignatures);
 
         // Set up the next question
         const nextStatsKey = `${nextBpm}|${nextTimeSignature}`;
@@ -381,14 +420,21 @@ class TempoTrainer extends Component {
                 bpmPlaying: nextBpm,
                 timeSignaturePlaying: nextTimeSignature,
 
-                bpmAnswers: this.getShuffledBpms(bpms, nextBpm, numBpmChoices),
-                timeSignatureAnswers: this.getShuffledTimeSignatures(timeSignatures, nextTimeSignature, numTimeSignatureChoices),
+                bpmAnswers: this.getShuffledBpms(activeBpms, nextBpm, activeBpmChoices),
+                timeSignatureAnswers: this.getShuffledTimeSignatures(activeTimeSignatures, nextTimeSignature, activeTimeSignatureChoices),
 
                 selectedBpm: null,
                 selectedTimeSignature: null,
                 isCorrect: false,
                 lastAnswer: -1,
                 gameStartTime,
+                currentLevel: level,
+                ...(levelState ? {
+                    bpms: levelState.bpms,
+                    timeSignatures: levelState.timeSignatures,
+                    numBpmChoices: levelState.numBpmChoices,
+                    numTimeSignatureChoices: levelState.numTimeSignatureChoices,
+                } : {}),
             };
         }, this.handlePlayMelody);
     };
@@ -478,13 +524,13 @@ class TempoTrainer extends Component {
     };
 
     // randomly choose a bpm from the bpms user chooses
-    getNextBpm = () => {
-        const available = BPMS.filter((_, i) => this.state.bpms[i]);
+    getNextBpm = (bpmSelection = this.state.bpms) => {
+        const available = BPMS.filter((_, i) => bpmSelection[i]);
         return available[Math.floor(Math.random() * available.length)];
     };
 
-    getNextTimeSignature = () => {
-        const available = TIME_SIGNATURES.filter((_, i) => this.state.timeSignatures[i]);
+    getNextTimeSignature = (timeSignatureSelection = this.state.timeSignatures) => {
+        const available = TIME_SIGNATURES.filter((_, i) => timeSignatureSelection[i]);
         return available[Math.floor(Math.random() * available.length)];
     };
 
