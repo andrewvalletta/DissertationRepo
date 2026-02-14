@@ -11,6 +11,7 @@ import TempoTrainer from './components/TempoTrainer';
 import logo from './logo.svg';
 import './App.css';
 import { sessionManager } from './system/SessionManager';
+import { EventLogger } from './system/EventLogger';
 
 // Material UI theme
 const theme = createTheme({
@@ -25,6 +26,20 @@ const theme = createTheme({
   typography: {},
 });
 
+const handleExportSession = () => {
+  const blob = new Blob(
+    [EventLogger.exportSessionAsJSON()],
+    { type: 'application/json' }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `session_${new Date().toISOString()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const Home: React.FC = () => (
   <header className="App-header">
     <img src={logo} className="App-logo" alt="logo" />
@@ -34,6 +49,11 @@ const Home: React.FC = () => (
       <strong>Pitch:</strong> Perfect pitch practice. <br />
       <strong>Tempo:</strong> Tempo recognition practice. <br />
     </p>
+    <div>
+      {EventLogger.getEvents().length > 1 && (
+        <button onClick={handleExportSession}>Export Session Data</button>
+      )}
+    </div>
   </header>
 );
 

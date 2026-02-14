@@ -62,7 +62,12 @@ class EventLoggerClass {
 
         console.log('Session End Event Logged:', event);
         this.events.push(event);
-    };  
+    };
+
+    exportSessionAsJSON() {
+        const events = this.getEvents();
+        return JSON.stringify(events, null, 2);
+    };
 }
 
 export const EventLogger = new EventLoggerClass();
