@@ -141,7 +141,7 @@ export class GamificationEngine {
         return {
             finalScore: this.state.score,
             finalLevel: this.state.level,
-            totalProgress: this.state.totalProgress,
+            totalProgress: this.state.progressDelta,
             achievementsUnlocked: [...this.state.achievements],
         };
     }

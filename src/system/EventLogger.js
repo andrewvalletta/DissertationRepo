@@ -1,3 +1,4 @@
+import { SystemEvents } from './SystemEvents.js';
 import { sessionManager } from './SessionManager.js';
 import { GamificationEngine } from './GamificationEngine.js';
 
@@ -53,7 +54,7 @@ class EventLoggerClass {
         const summary = this.gamificationEngine.getSessionSummary();
 
         const event = {
-            eventType: 'SESSION_END',
+            eventType: SystemEvents.SESSION_END,
             ...summary,
             sessionId,
             timestamp: new Date().toISOString(),
