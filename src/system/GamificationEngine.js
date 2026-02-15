@@ -6,39 +6,27 @@ export class GamificationEngine {
             baseScore: config.baseScore ?? 50,
             baseXp: config.baseXp ?? 10,
             levelThresholds: config.levelThresholds ?? {
-                1: 100,
-                2: 200,
-                3: 300,
+                1: 0,
+                2: 100,
+                3: 200,
             },
+            maxLevel: config.maxLevel ?? 3,
             progressDelta: config.progressDelta ?? 10,
         };
 
         this.resetState();
     }
 
-    getMaxLevel() {
-        const levels = Object.keys(this.config.levelThresholds).map(Number);
-        return levels.length > 0 ? Math.max(...levels) : 1;
-    }
-
     getLevelFromXp(xp) {
-        const thresholds = Object.entries(this.config.levelThresholds)
-            .map(([level, thresholdXp]) => ({
-                level: Number(level),
-                thresholdXp,
-            }))
-            .sort((a, b) => a.thresholdXp - b.thresholdXp);
-
-        const maxLevel = this.getMaxLevel();
         let level = 1;
 
-        for (const threshold of thresholds) {
-            if (xp >= threshold.thresholdXp) {
-                level = Math.min(maxLevel, threshold.level + 1);
+        for (const [lvl, thresholdXp] of Object.entries(this.config.levelThresholds)) {
+            if (xp >= thresholdXp) {
+                level = Number(lvl);
             }
         }
 
-        return level;
+        return Math.min(level, this.config.maxLevel);
     }
 
     resetState() {
@@ -106,8 +94,12 @@ export class GamificationEngine {
                     achievementsUnlocked.push('LEVEL_UP');
                 }
 
+                // Return cumulative achievements unlocked in this event (if any)
+                if (this.state.achievements.size > 0) {
+                    deltas.achievementsUnlocked = Array.from(this.state.achievements);
+                }
+
                 if (achievementsUnlocked.length > 0) {
-                    deltas.achievementsUnlocked = achievementsUnlocked;
                     deltas.achievementUnlocked = achievementsUnlocked[0];
                 }
 
