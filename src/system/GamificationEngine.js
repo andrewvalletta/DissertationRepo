@@ -100,7 +100,7 @@ export class GamificationEngine {
                 }
 
                 if (achievementsUnlocked.length > 0) {
-                    deltas.achievementUnlocked = achievementsUnlocked[0];
+                    deltas.achievementUnlocked = [...achievementsUnlocked];
                 }
 
                 break;
