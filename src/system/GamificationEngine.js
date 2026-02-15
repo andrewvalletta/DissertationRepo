@@ -52,7 +52,7 @@ export class GamificationEngine {
             case SystemEvents.TASK_START: {
                 const before = this.state.progressDelta;
 
-                this.state.progressDelta = Math.min(100, this.state.progressDelta + this.config.progressDelta);
+                this.state.progressDelta = Math.min(300, this.state.progressDelta + this.config.progressDelta);
 
                 deltas.progressDelta = this.state.progressDelta - before;
                 deltas.totalProgress = this.state.progressDelta;
