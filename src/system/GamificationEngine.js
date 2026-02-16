@@ -12,6 +12,8 @@ export class GamificationEngine {
             },
             maxLevel: config.maxLevel ?? 3,
             progressDelta: config.progressDelta ?? 10,
+            progressThreshold: config.progressThreshold ?? 300,
+            onSessionEnd: config.onSessionEnd ?? null,
         };
 
         this.resetState();
@@ -37,10 +39,15 @@ export class GamificationEngine {
             achievements: new Set(),
             progressDelta: 0,
             consecutiveSuccesses: 0,
+            sessionEnded: false,
         };
     }
 
     handleEvent(event) {
+        if (this.state.sessionEnded && event.eventType !== SystemEvents.SESSION_START) {
+            return null;
+        }
+
         const deltas = {};
 
         switch (event.eventType) {
@@ -114,6 +121,14 @@ export class GamificationEngine {
             default:
                 // Ignore other events
                 break;
+        }
+
+        if (!this.state.sessionEnded && this.state.progressDelta >= this.config.progressThreshold) {
+            this.state.sessionEnded = true;
+
+            if (typeof this.config.onSessionEnd === 'function') {
+                this.config.onSessionEnd(this.getSessionSummary());
+            }
         }
 
         return Object.keys(deltas).length > 0 ? deltas : null;
