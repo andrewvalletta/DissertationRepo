@@ -13,6 +13,8 @@ import './App.css';
 import { sessionManager } from './system/SessionManager';
 import { EventLogger } from './system/EventLogger';
 
+import { SimulationRunner } from './system/SimulationRunner';
+
 // Material UI theme
 const theme = createTheme({
   palette: {
@@ -59,11 +61,16 @@ const Home: React.FC = () => (
 
 const App: React.FC = () => {
   useEffect(() => {
-    sessionManager.startSession();
-
-    return () => {
-      sessionManager.endSession();
+    (window as any).runSimulation = (numOfSimulations: number) => {
+      const simulator = new SimulationRunner();
+      simulator.runBatch(numOfSimulations || 100);
     };
+
+    // sessionManager.startSession();
+
+    // return () => {
+    //   sessionManager.endSession();
+    // };
   }, []);
 
   return (

@@ -10,6 +10,9 @@ class EventLoggerClass {
         this.gamificationEngine = new GamificationEngine({
             onSessionEnd: (summary) => this.handleAutoSessionEnd(summary),
         });
+
+        this.simulationMode = false;
+        this.simulationDataset = [];
     };
 
     log(event) {
@@ -114,7 +117,42 @@ class EventLoggerClass {
         }
 
         this.logSessionEnd(summary);
-        this.exportSessionAsFile();
+
+        if (this.simulationMode) {
+            // Store session data for later export instead of immediately downloading
+            this.simulationDataset.push(
+                JSON.parse(
+                    JSON.stringify(
+                        this.getEvents()
+                    )
+                )
+            );
+        } else {
+            this.exportSessionAsFile();
+        }
+    };
+
+    enableSimulationMode() {
+        this.simulationMode = true;
+        this.simulationDataset = [];
+    };
+
+    exportSimulationDataset() {
+        if (!this.simulationMode) {
+            throw new Error('Simulation mode is not enabled. Cannot export dataset.');
+        }
+
+        const blob = new Blob(
+            [JSON.stringify(this.simulationDataset, null, 2)],
+            { type: 'application/json' }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `simulation_dataset_${new Date().toISOString()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 }
 
