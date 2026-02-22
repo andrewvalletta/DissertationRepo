@@ -10,7 +10,7 @@ import TempoTrainer from './components/TempoTrainer';
 // import { AuthProvider } from './firebase/AuthContext';
 import logo from './logo.svg';
 import './App.css';
-import { sessionManager } from './system/SessionManager';
+// import { sessionManager } from './system/SessionManager';
 import { EventLogger } from './system/EventLogger';
 
 import { SimulationRunner } from './system/SimulationRunner';

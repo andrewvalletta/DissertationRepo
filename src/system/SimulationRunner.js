@@ -21,13 +21,13 @@ export class SimulationRunner {
     }
 
     runSingleSession() {
-        // Ensure clean state
-        EventLogger.clear();
-
         // Force end of any existing session to avoid conflicts
         if (sessionManager.getSessionId()) {
-            sessionManager.endSession();
+            sessionManager.endSession(false);
         }
+
+        // Ensure clean state
+        EventLogger.clear();
 
         // Start the session
         sessionManager.startSession();

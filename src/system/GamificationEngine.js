@@ -123,7 +123,17 @@ export class GamificationEngine {
                 break;
         }
 
-        if (!this.state.sessionEnded && this.state.progressDelta >= this.config.progressThreshold) {
+        const canCompleteSession = [
+            SystemEvents.TASK_SUCCESS,
+            SystemEvents.TASK_FAILURE,
+            SystemEvents.TASK_SKIP,
+        ].includes(event.eventType);
+
+        if (
+            !this.state.sessionEnded &&
+            canCompleteSession &&
+            this.state.progressDelta >= this.config.progressThreshold
+        ) {
             this.state.sessionEnded = true;
 
             if (typeof this.config.onSessionEnd === 'function') {

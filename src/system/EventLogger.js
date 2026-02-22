@@ -7,8 +7,11 @@ class EventLoggerClass {
         this.events = [];
         this.sessionEnded = false;
         this.hasExported = false;
+        this.pendingAutoSessionEndSummary = null;
         this.gamificationEngine = new GamificationEngine({
-            onSessionEnd: (summary) => this.handleAutoSessionEnd(summary),
+            onSessionEnd: (summary) => {
+                this.pendingAutoSessionEndSummary = summary;
+            },
         });
 
         this.simulationMode = false;
@@ -46,6 +49,12 @@ class EventLoggerClass {
         console.log('Event Logged:', enrichedEvent);
 
         this.events.push(enrichedEvent);
+
+        if (this.pendingAutoSessionEndSummary && !this.sessionEnded) {
+            const summary = this.pendingAutoSessionEndSummary;
+            this.pendingAutoSessionEndSummary = null;
+            this.handleAutoSessionEnd(summary);
+        }
     };
 
     getEvents() {
@@ -60,6 +69,7 @@ class EventLoggerClass {
         this.events = [];
         this.sessionEnded = false;
         this.hasExported = false;
+        this.pendingAutoSessionEndSummary = null;
     };
 
     logSessionEnd(summaryOverride = null) {
@@ -117,6 +127,7 @@ class EventLoggerClass {
         }
 
         this.logSessionEnd(summary);
+        sessionManager.endSession(false);
 
         if (this.simulationMode) {
             // Store session data for later export instead of immediately downloading

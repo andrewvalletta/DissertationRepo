@@ -22,12 +22,14 @@ class SessionManager {
         return this.sessionId;
     };
 
-    endSession() {
+    endSession(logSessionEndEvent = true) {
         if (!this.active) {
             return;
         };
 
-        EventLogger.logSessionEnd();
+        if (logSessionEndEvent) {
+            EventLogger.logSessionEnd();
+        }
 
         this.active = false;
         this.sessionId = null;
