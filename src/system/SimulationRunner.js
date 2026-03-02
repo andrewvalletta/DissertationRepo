@@ -13,12 +13,12 @@ export class SimulationRunner {
         this.baseSeed = config.seed ?? 1;
     }
 
-    runBatch(sessionCount = 100) {
+    runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy') {
         EventLogger.enableSimulationMode();
 
         for (let i = 0; i < sessionCount; i++) {
             console.log(`Running session ${i + 1} of ${sessionCount}`);
-            this.runSingleSession(i);
+            this.runSingleSession(i, agentProfileName);
         }
 
         console.log("Dataset length: ", EventLogger.simulationDataset.length);
@@ -26,7 +26,7 @@ export class SimulationRunner {
         EventLogger.exportSimulationDataset();
     }
 
-    runSingleSession(sessionIndex = 0) {
+    runSingleSession(sessionIndex = 0, agentProfileName = 'moderate_accuracy') {
         // Force end of any existing session to avoid conflicts
         if (sessionManager.getSessionId()) {
             sessionManager.endSession(false);
@@ -37,6 +37,7 @@ export class SimulationRunner {
 
         // Create a new agent with the specified profile and seed
         const sessionSeed = this.baseSeed + sessionIndex;
+        this.profile = AGENT_PROFILES[agentProfileName] ?? AGENT_PROFILES['moderate_accuracy'];
         this.agent = new SimulationAgent(this.profile, sessionSeed);
 
         this.taskCounter = 0;
@@ -78,6 +79,7 @@ export class SimulationRunner {
         }
 
         let success = false;
+        let shouldRetry = false;
 
         do {
             const responseTime = this.agent.getResponseTime();
@@ -92,14 +94,36 @@ export class SimulationRunner {
                 responseTime,
             });
 
-            // Outcome
+            if (success) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_SUCCESS,
+                    taskId,
+                    agentProfile: this.agent.profile.profileName,
+                    responseTime,
+                });
+
+                break;
+            }
+
+            shouldRetry = this.agent.shouldRetry();
+
             EventLogger.log({
-                eventType: success ? SystemEvents.TASK_SUCCESS : SystemEvents.TASK_FAILURE,
+                eventType: SystemEvents.TASK_FAILURE,
                 taskId,
                 agentProfile: this.agent.profile.profileName,
                 responseTime,
+                retryable: true,
             });
-        } while (!success && this.agent.shouldRetry());
+
+            if (!shouldRetry) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_SKIP,
+                    taskId,
+                    agentProfile: this.agent.profile.profileName,
+                    reason: 'retry_exhausted',
+                });
+            }
+        } while (!success && shouldRetry);
     }
 
     generateTaskId() {
@@ -109,6 +133,6 @@ export class SimulationRunner {
 
     hasSessionEnded() {
         const state = EventLogger.getGamificationState();
-        return state.progressDelta >= 300;
+        return !sessionManager.getSessionId() || state.progressDelta >= 300;
     }
 }

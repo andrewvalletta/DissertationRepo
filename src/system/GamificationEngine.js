@@ -123,11 +123,10 @@ export class GamificationEngine {
                 break;
         }
 
-        const canCompleteSession = [
-            SystemEvents.TASK_SUCCESS,
-            SystemEvents.TASK_FAILURE,
-            SystemEvents.TASK_SKIP,
-        ].includes(event.eventType);
+        const canCompleteSession =
+            event.eventType === SystemEvents.TASK_SUCCESS ||
+            event.eventType === SystemEvents.TASK_SKIP ||
+            (event.eventType === SystemEvents.TASK_FAILURE && event.retryable !== true);
 
         if (
             !this.state.sessionEnded &&

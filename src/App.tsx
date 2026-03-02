@@ -61,9 +61,9 @@ const Home: React.FC = () => (
 
 const App: React.FC = () => {
   useEffect(() => {
-    (window as any).runSimulation = (numOfSimulations: number) => {
+    (window as any).runSimulation = (numOfSimulations: number, agentProfileName: string) => {
       const simulator = new SimulationRunner();
-      simulator.runBatch(numOfSimulations || 100);
+      simulator.runBatch(numOfSimulations || 100, agentProfileName || 'moderate_accuracy');
     };
 
     // sessionManager.startSession();
