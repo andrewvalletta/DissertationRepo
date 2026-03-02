@@ -4,7 +4,7 @@ export const AGENT_PROFILES = {
         accuracy: 0.95,
         retryRate: 0.2,
         skipRate: 0.01,
-        responseTime: [400, 800]
+        responseTime: [700, 3000]
     },
 
     moderate_accuracy: {
@@ -12,7 +12,7 @@ export const AGENT_PROFILES = {
         accuracy: 0.7,
         retryRate: 0.5,
         skipRate: 0.05,
-        responseTime: [800, 1400]
+        responseTime: [1200, 5000]
     },
 
     low_accuracy: {
@@ -20,7 +20,7 @@ export const AGENT_PROFILES = {
         accuracy: 0.45,
         retryRate: 0.8,
         skipRate: 0.1,
-        responseTime: [1200, 2000]
+        responseTime: [2000, 8000]
     },
 
     stress: {

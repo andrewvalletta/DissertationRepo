@@ -16,6 +16,43 @@ class EventLoggerClass {
 
         this.simulationMode = false;
         this.simulationDataset = [];
+        this.simulationClockMs = null;
+    };
+
+    getResponseTimeMs(event) {
+        const responseTime = Number(event?.responseTime);
+        const responseTimeMs = Number(event?.responseTimeMs);
+
+        if (Number.isFinite(responseTime) && responseTime >= 0) {
+            return responseTime;
+        }
+
+        if (Number.isFinite(responseTimeMs) && responseTimeMs >= 0) {
+            return responseTimeMs;
+        }
+
+        return null;
+    };
+
+    getNextTimestamp(event = null) {
+        if (!this.simulationMode) {
+            return new Date().toISOString();
+        }
+
+        if (event?.eventType === SystemEvents.SESSION_START || this.simulationClockMs === null) {
+            this.simulationClockMs = Date.now();
+            return new Date(this.simulationClockMs).toISOString();
+        }
+
+        if (event?.eventType === SystemEvents.TASK_ATTEMPT) {
+            const responseTimeMs = this.getResponseTimeMs(event);
+
+            if (responseTimeMs !== null) {
+                this.simulationClockMs += responseTimeMs;
+            }
+        }
+
+        return new Date(this.simulationClockMs).toISOString();
     };
 
     log(event) {
@@ -42,7 +79,7 @@ class EventLoggerClass {
             ...event,
             ...(gamificationDeltas ?? {}),
             sessionId: sessionId,
-            timestamp: new Date().toISOString(),
+            timestamp: this.getNextTimestamp(event),
         };
 
         // TEMPORARY: Also log to console for immediate visibility
@@ -70,6 +107,7 @@ class EventLoggerClass {
         this.sessionEnded = false;
         this.hasExported = false;
         this.pendingAutoSessionEndSummary = null;
+        this.simulationClockMs = null;
     };
 
     logSessionEnd(summaryOverride = null) {
@@ -89,7 +127,7 @@ class EventLoggerClass {
             eventType: SystemEvents.SESSION_END,
             ...summary,
             sessionId,
-            timestamp: new Date().toISOString(),
+            timestamp: this.getNextTimestamp({ eventType: SystemEvents.SESSION_END }),
         };
 
         console.log('Session End Event Logged:', event);
@@ -146,6 +184,7 @@ class EventLoggerClass {
     enableSimulationMode() {
         this.simulationMode = true;
         this.simulationDataset = [];
+        this.simulationClockMs = null;
     };
 
     exportSimulationDataset() {
