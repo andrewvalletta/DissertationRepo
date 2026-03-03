@@ -3,18 +3,24 @@ import { SystemEvents } from "./SystemEvents";
 import { sessionManager } from "./SessionManager";
 import { SimulationAgent } from "./SimulationAgent";
 import { AGENT_PROFILES } from "./AgentProfiles";
+import { TaskFactory } from "./TaskFactory";
 
 export class SimulationRunner {
     constructor(config = {}) {
-        this.config = config;
+        this.config = {
+            taskType: config.taskType ?? 'pitch', // 'pitch' or 'tempo'
+            seed: config.seed ?? 1,
+        };
 
         this.profile = AGENT_PROFILES[config.profile] ?? AGENT_PROFILES['moderate_accuracy'];
 
-        this.baseSeed = config.seed ?? 1;
+        this.baseSeed = this.config.seed ?? 1;
     }
 
-    runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy') {
+    runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy', taskType = 'pitch') {
         EventLogger.enableSimulationMode();
+
+        this.config.taskType = taskType;
 
         for (let i = 0; i < sessionCount; i++) {
             console.log(`Running session ${i + 1} of ${sessionCount}`);
@@ -40,8 +46,6 @@ export class SimulationRunner {
         this.profile = AGENT_PROFILES[agentProfileName] ?? AGENT_PROFILES['moderate_accuracy'];
         this.agent = new SimulationAgent(this.profile, sessionSeed);
 
-        this.taskCounter = 0;
-
         // Start the session
         sessionManager.startSession();
 
@@ -54,17 +58,24 @@ export class SimulationRunner {
     }
 
     simulateTask() {
-        const taskId = this.generateTaskId();
-
         const currentLevel = EventLogger.getGamificationState().level ?? 1;
 
         this.agent.setLevel(currentLevel);
+
+        const task = TaskFactory.generate({
+            level: currentLevel,
+            rng: this.agent.rng,
+            type: this.config.taskType,
+        });
+
+        const taskId = task.taskId;
 
         // TASK_START
         EventLogger.log({
             eventType: SystemEvents.TASK_START,
             taskId,
             agentProfile: this.agent.profile.profileName,
+            level: currentLevel,
         });
 
         // TASK_SKIP
@@ -124,11 +135,6 @@ export class SimulationRunner {
                 });
             }
         } while (!success && shouldRetry);
-    }
-
-    generateTaskId() {
-        this.taskCounter += 1;
-        return `task_${this.taskCounter}`;
     }
 
     hasSessionEnded() {
