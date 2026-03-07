@@ -4,6 +4,24 @@ import { sessionManager } from "./SessionManager";
 import { SimulationAgent } from "./SimulationAgent";
 import { AGENT_PROFILES } from "./AgentProfiles";
 import { TaskFactory } from "./TaskFactory";
+import { LEVEL_CONFIG } from "./LevelConfig";
+
+function shuffle(array, rng) {
+    const copy = [...array];
+    for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+}
+
+function restrictPool(array, size, rng) {
+    if (size >= array.length) {
+        return array;
+    }
+
+    return shuffle(array, rng).slice(0, size);
+}
 
 export class SimulationRunner {
     constructor(config = {}) {
@@ -15,6 +33,31 @@ export class SimulationRunner {
         this.profile = AGENT_PROFILES[config.profile] ?? AGENT_PROFILES['moderate_accuracy'];
 
         this.baseSeed = this.config.seed ?? 1;
+
+        this.currentLevel = null;
+        this.currentPools = null;
+    }
+
+    createPools(level) {
+        const config = LEVEL_CONFIG[level] || LEVEL_CONFIG[1];
+
+        return {
+            notes: restrictPool(
+                config.pitch.allowedNotes,
+                config.pitch.numNotesInPool,
+                this.agent.rng
+            ),
+            bpms: restrictPool(
+                config.tempo.allowedBpms,
+                config.tempo.bpmChoices,
+                this.agent.rng
+            ),
+            timeSignatures: restrictPool(
+                config.tempo.allowedTimeSignatures,
+                config.tempo.timeSignatureChoices,
+                this.agent.rng
+            )
+        };
     }
 
     runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy', taskType = 'pitch') {
@@ -62,10 +105,16 @@ export class SimulationRunner {
 
         this.agent.setLevel(currentLevel);
 
+        // Create task pools based on the current level configuration
+        if (this.currentLevel !== currentLevel) {
+            this.currentLevel = currentLevel;
+            this.currentPools = this.createPools(currentLevel);
+        }
+
         const task = TaskFactory.generate({
-            level: currentLevel,
             rng: this.agent.rng,
             type: this.config.taskType,
+            pools: this.currentPools,
         });
 
         const taskId = task.taskId;

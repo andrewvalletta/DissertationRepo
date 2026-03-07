@@ -1,4 +1,3 @@
-import { LEVEL_CONFIG } from "./LevelConfig";
 import { pitchTaskId, tempoTaskId } from "./taskIds";
 
 function pickRandom(array, rng) {
@@ -7,13 +6,9 @@ function pickRandom(array, rng) {
 }
 
 export class TaskFactory {
-    static generate({ level = 1, rng, type = "pitch" }) {
-        const numericLevel = Number(level);
-        const config = LEVEL_CONFIG[numericLevel] || LEVEL_CONFIG[1];
-
+    static generate({ rng, type = "pitch", pools }) {
         if (type === "pitch") {
-            const allowedNotes = config.pitch.allowedNotes;
-            const note = pickRandom(allowedNotes, rng);
+            const note = pickRandom(pools.notes, rng);
 
             return {
                 type: "pitch",
@@ -23,11 +18,8 @@ export class TaskFactory {
         }
 
         if (type === "tempo") {
-            const allowedBpms = config.tempo.allowedBpms;
-            const allowedTimeSignatures = config.tempo.allowedTimeSignatures;
-
-            const bpm = pickRandom(allowedBpms, rng);
-            const timeSignature = pickRandom(allowedTimeSignatures, rng);
+            const bpm = pickRandom(pools.bpms, rng);
+            const timeSignature = pickRandom(pools.timeSignatures, rng);
 
             return {
                 type: "tempo",

@@ -14,7 +14,7 @@ export const LEVEL_CONFIG = {
             allowedBpms: [60, 80, 100, 120, 140, 160],
             allowedTimeSignatures: ['2/4', '3/4', '4/4', '6/8'],
 
-            // Number of BPM and Time Signature answer choices to present to the user
+            // Number of BPM and Time Signature answer choices to present to the user / bmps and time signatures to choose from when generating a question
             bpmChoices: 2,
             timeSignatureChoices: 2,
         },
@@ -35,7 +35,7 @@ export const LEVEL_CONFIG = {
             allowedBpms: [60, 80, 100, 120, 140, 160],
             allowedTimeSignatures: ['2/4', '3/4', '4/4', '6/8'],
 
-            // Number of BPM and Time Signature answer choices to present to the user
+            // Number of BPM and Time Signature answer choices to present to the user / bmps and time signatures to choose from when generating a question
             bpmChoices: 3,
             timeSignatureChoices: 3,
         },
@@ -56,7 +56,7 @@ export const LEVEL_CONFIG = {
             allowedBpms: [60, 80, 100, 120, 140, 160],
             allowedTimeSignatures: ['2/4', '3/4', '4/4', '6/8'],
 
-            // Number of BPM and Time Signature answer choices to present to the user
+            // Number of BPM and Time Signature answer choices to present to the user / bmps and time signatures to choose from when generating a question
             bpmChoices: 6,
             timeSignatureChoices: 4,
         },
