@@ -101,13 +101,9 @@ export class GamificationEngine {
                     achievementsUnlocked.push('LEVEL_UP');
                 }
 
-                // Return cumulative achievements unlocked in this event (if any)
-                if (this.state.achievements.size > 0) {
-                    deltas.achievementsUnlocked = Array.from(this.state.achievements);
-                }
-
                 if (achievementsUnlocked.length > 0) {
-                    deltas.achievementUnlocked = [...achievementsUnlocked];
+                    // Log only achievements first unlocked by this specific event.
+                    deltas.achievementsUnlocked = [...achievementsUnlocked];
                 }
 
                 break;
