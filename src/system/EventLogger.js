@@ -44,7 +44,7 @@ class EventLoggerClass {
             return new Date(this.simulationClockMs).toISOString();
         }
 
-        if (event?.eventType === SystemEvents.TASK_ATTEMPT) {
+        if (event?.eventType === SystemEvents.TASK_ATTEMPT || event?.eventType === SystemEvents.TASK_RETRY) {
             const responseTimeMs = this.getResponseTimeMs(event);
 
             if (responseTimeMs !== null) {

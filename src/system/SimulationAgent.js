@@ -7,6 +7,7 @@ export class SimulationAgent {
             accuracy: profile.accuracy ?? 0.7,
             retryRate: profile.retryRate ?? 0.5,
             skipRate: profile.skipRate ?? 0.05,
+            maxRetries: profile.maxRetries ?? 2,
             responseTime: profile.responseTime ?? [800, 1400],
 
         };
@@ -41,8 +42,16 @@ export class SimulationAgent {
         return this.rng() < this.profile.skipRate;
     }
 
-    shouldRetry() {
+    shouldRetry(retryCount = 0) {
+        if (retryCount >= this.getMaxRetries()) {
+            return false;
+        }
+
         return this.rng() < this.profile.retryRate;
+    }
+
+    getMaxRetries() {
+        return Math.max(0, Math.floor(this.profile.maxRetries));
     }
 
     attemptOutcome() {

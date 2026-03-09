@@ -28,6 +28,7 @@ export class SimulationRunner {
         this.config = {
             taskType: config.taskType ?? 'pitch', // 'pitch' or 'tempo'
             seed: config.seed ?? 1,
+            recentTaskBuffer: config.recentTaskBuffer ?? 5,
         };
 
         this.profile = AGENT_PROFILES[config.profile] ?? AGENT_PROFILES['moderate_accuracy'];
@@ -36,6 +37,67 @@ export class SimulationRunner {
 
         this.currentLevel = null;
         this.currentPools = null;
+        this.recentTasks = [];
+    }
+
+    getTaskSpaceSize() {
+        if (this.config.taskType === 'pitch') {
+            return this.currentPools?.notes?.length ?? 0;
+        }
+
+        if (this.config.taskType === 'tempo') {
+            const bpmCount = this.currentPools?.bpms?.length ?? 0;
+            const signatureCount = this.currentPools?.timeSignatures?.length ?? 0;
+            return bpmCount * signatureCount;
+        }
+
+        return 0;
+    }
+
+    getRecentTaskBufferSize() {
+        return Math.max(0, Math.floor(this.config.recentTaskBuffer));
+    }
+
+    getNextTask() {
+        const taskSpaceSize = this.getTaskSpaceSize();
+        const rawBufferSize = this.getRecentTaskBufferSize();
+        const effectiveBufferSize = Math.min(rawBufferSize, Math.max(0, taskSpaceSize - 1));
+
+        if (effectiveBufferSize === 0) {
+            return TaskFactory.generate({
+                rng: this.agent.rng,
+                type: this.config.taskType,
+                pools: this.currentPools,
+            });
+        }
+
+        const recentSet = new Set(this.recentTasks.slice(-effectiveBufferSize));
+        let fallbackTask = null;
+
+        for (let i = 0; i < 25; i++) {
+            const candidate = TaskFactory.generate({
+                rng: this.agent.rng,
+                type: this.config.taskType,
+                pools: this.currentPools,
+            });
+
+            fallbackTask = candidate;
+
+            if (!recentSet.has(candidate.taskId)) {
+                return candidate;
+            }
+        }
+
+        return fallbackTask;
+    }
+
+    rememberTask(taskId) {
+        this.recentTasks.push(taskId);
+
+        const maxRetained = Math.max(1, this.getRecentTaskBufferSize());
+        if (this.recentTasks.length > maxRetained) {
+            this.recentTasks = this.recentTasks.slice(-maxRetained);
+        }
     }
 
     createPools(level) {
@@ -88,6 +150,7 @@ export class SimulationRunner {
         const sessionSeed = this.baseSeed + sessionIndex;
         this.profile = AGENT_PROFILES[agentProfileName] ?? AGENT_PROFILES['moderate_accuracy'];
         this.agent = new SimulationAgent(this.profile, sessionSeed);
+        this.recentTasks = [];
 
         // Start the session
         sessionManager.startSession();
@@ -111,13 +174,10 @@ export class SimulationRunner {
             this.currentPools = this.createPools(currentLevel);
         }
 
-        const task = TaskFactory.generate({
-            rng: this.agent.rng,
-            type: this.config.taskType,
-            pools: this.currentPools,
-        });
+        const task = this.getNextTask();
 
         const taskId = task.taskId;
+        this.rememberTask(taskId);
 
         // TASK_START
         EventLogger.log({
@@ -127,31 +187,22 @@ export class SimulationRunner {
             level: currentLevel,
         });
 
-        // TASK_SKIP
-        if (this.agent.shouldSkip()) {
-            EventLogger.log({
-                eventType: SystemEvents.TASK_SKIP,
-                taskId,
-                agentProfile: this.agent.profile.profileName,
-            });
-
-            return;
-        }
-
         let success = false;
-        let shouldRetry = false;
+        let retryCount = 0;
+        const maxRetries = this.agent.getMaxRetries();
 
-        do {
+        while (true) {
             const responseTime = this.agent.getResponseTime();
             success = this.agent.attemptOutcome();
 
-            // TASK_ATTEMPT
+            // First attempt is TASK_ATTEMPT; subsequent attempts are TASK_RETRY
             EventLogger.log({
-                eventType: SystemEvents.TASK_ATTEMPT,
+                eventType: retryCount === 0 ? SystemEvents.TASK_ATTEMPT : SystemEvents.TASK_RETRY,
                 taskId,
                 agentProfile: this.agent.profile.profileName,
                 success,
                 responseTime,
+                retryCount,
             });
 
             if (success) {
@@ -160,19 +211,23 @@ export class SimulationRunner {
                     taskId,
                     agentProfile: this.agent.profile.profileName,
                     responseTime,
+                    retryCount,
                 });
 
                 break;
             }
 
-            shouldRetry = this.agent.shouldRetry();
+            const retryable = retryCount < maxRetries;
+            const shouldRetry = this.agent.shouldRetry(retryCount);
 
             EventLogger.log({
                 eventType: SystemEvents.TASK_FAILURE,
                 taskId,
                 agentProfile: this.agent.profile.profileName,
                 responseTime,
-                retryable: true,
+                retryable,
+                retryCount,
+                maxRetries,
             });
 
             if (!shouldRetry) {
@@ -180,10 +235,16 @@ export class SimulationRunner {
                     eventType: SystemEvents.TASK_SKIP,
                     taskId,
                     agentProfile: this.agent.profile.profileName,
-                    reason: 'retry_exhausted',
+                    reason: retryable ? 'retry_declined' : 'retry_exhausted',
+                    retryCount,
+                    maxRetries,
                 });
+
+                break;
             }
-        } while (!success && shouldRetry);
+
+            retryCount += 1;
+        }
     }
 
     hasSessionEnded() {
