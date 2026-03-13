@@ -218,8 +218,22 @@ export class SimulationRunner {
             }
 
             const retryable = retryCount < maxRetries;
-            const shouldRetry = this.agent.shouldRetry(retryCount);
 
+            // If retries are exhausted, log a TASK_SKIP and exit the loop
+            if (!retryable) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_SKIP,
+                    taskId,
+                    agentProfile: this.agent.profile.profileName,
+                    reason: 'retry_exhausted',
+                    retryCount,
+                    maxRetries,
+                });
+
+                break;
+            }
+
+            // Log the failure before deciding to retry
             EventLogger.log({
                 eventType: SystemEvents.TASK_FAILURE,
                 taskId,
@@ -228,14 +242,17 @@ export class SimulationRunner {
                 retryable,
                 retryCount,
                 maxRetries,
+                attemptNumber: retryCount + 1,
             });
+
+            const shouldRetry = this.agent.shouldRetry(retryCount);
 
             if (!shouldRetry) {
                 EventLogger.log({
                     eventType: SystemEvents.TASK_SKIP,
                     taskId,
                     agentProfile: this.agent.profile.profileName,
-                    reason: retryable ? 'retry_declined' : 'retry_exhausted',
+                    reason: 'retry_declined',
                     retryCount,
                     maxRetries,
                 });
