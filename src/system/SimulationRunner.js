@@ -219,8 +219,19 @@ export class SimulationRunner {
 
             const retryable = retryCount < maxRetries;
 
-            // If retries are exhausted, log a TASK_SKIP and exit the loop
+            // If retries are exhausted, log the final failure, then TASK_SKIP and exit the loop
             if (!retryable) {
+                EventLogger.log({
+                    eventType: SystemEvents.TASK_FAILURE,
+                    taskId,
+                    agentProfile: this.agent.profile.profileName,
+                    responseTime,
+                    retryable,
+                    retryCount,
+                    maxRetries,
+                    attemptNumber: retryCount + 1,
+                });
+
                 EventLogger.log({
                     eventType: SystemEvents.TASK_SKIP,
                     taskId,
