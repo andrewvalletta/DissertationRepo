@@ -23,6 +23,30 @@ function restrictPool(array, size, rng) {
     return shuffle(array, rng).slice(0, size);
 }
 
+const RETRY_PROFILE_ENSEMBLE = {
+    low_accuracy: [
+        ['low_accuracy', 'moderate_accuracy'],
+        ['low_accuracy', 'moderate_accuracy', 'high_accuracy'],
+    ],
+    moderate_accuracy: [
+        ['moderate_accuracy', 'high_accuracy'],
+        ['moderate_accuracy', 'high_accuracy'],
+    ],
+    high_accuracy: [
+        ['high_accuracy'],
+        ['high_accuracy'],
+    ],
+};
+
+function chooseProfileName(profileNames, rng) {
+    if (!Array.isArray(profileNames) || profileNames.length === 0) {
+        return null;
+    }
+
+    const selectedIndex = Math.floor(rng() * profileNames.length);
+    return profileNames[selectedIndex] ?? null;
+}
+
 export class SimulationRunner {
     constructor(config = {}) {
         this.config = {
@@ -164,6 +188,7 @@ export class SimulationRunner {
     }
 
     simulateTask() {
+        const taskOwnerProfile = this.agent.profile;
         const currentLevel = EventLogger.getGamificationState().level ?? 1;
 
         this.agent.setLevel(currentLevel);
@@ -183,13 +208,15 @@ export class SimulationRunner {
         EventLogger.log({
             eventType: SystemEvents.TASK_START,
             taskId,
-            agentProfile: this.agent.profile.profileName,
+            agentProfile: taskOwnerProfile.profileName,
             level: currentLevel,
         });
 
         let success = false;
         let retryCount = 0;
         const maxRetries = this.agent.getMaxRetries();
+
+        this.agent.profile = taskOwnerProfile;
 
         while (true) {
             const responseTime = this.agent.getResponseTime();
@@ -271,8 +298,22 @@ export class SimulationRunner {
                 break;
             }
 
+            const retryProfileNames = RETRY_PROFILE_ENSEMBLE[taskOwnerProfile.profileName];
+            const nextProfileName = chooseProfileName(
+                retryProfileNames?.[retryCount] ?? [taskOwnerProfile.profileName],
+                this.agent.rng
+            );
+
+            if (nextProfileName && AGENT_PROFILES[nextProfileName]) {
+                this.agent.profile = AGENT_PROFILES[nextProfileName];
+            } else {
+                this.agent.profile = taskOwnerProfile;
+            }
+
             retryCount += 1;
         }
+
+        this.agent.profile = taskOwnerProfile;
     }
 
     hasSessionEnded() {
