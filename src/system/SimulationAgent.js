@@ -5,8 +5,6 @@ export class SimulationAgent {
 
             // Core behavior from AgentProfiles.js
             accuracy: profile.accuracy ?? 0.7,
-            retryRate: profile.retryRate ?? 0.5,
-            skipRate: profile.skipRate ?? 0.05,
             maxRetries: profile.maxRetries ?? 2,
             responseTime: profile.responseTime ?? [800, 1400],
 
@@ -34,12 +32,30 @@ export class SimulationAgent {
         this.rng = this.createSeededRNG(this.initialSeed);
     }
 
+    clampProbability(value, min = 0, max = 1) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    getDerivedAccuracy() {
+        return this.clampProbability(Number(this.profile.accuracy) || 0);
+    }
+
+    getRetryProbability() {
+        const accuracy = this.getDerivedAccuracy();
+        return this.clampProbability(0.2 + (1 - accuracy) * 0.6, 0.05, 0.85);
+    }
+
+    getSkipProbability() {
+        const accuracy = this.getDerivedAccuracy();
+        return this.clampProbability((1 - accuracy) * 0.1, 0.01, 0.1);
+    }
+
     setLevel(level) {
         this.currentLevel = level ?? 1;
     }
 
     shouldSkip() {
-        return this.rng() < this.profile.skipRate;
+        return this.rng() < this.getSkipProbability();
     }
 
     shouldRetry(retryCount = 0) {
@@ -47,7 +63,14 @@ export class SimulationAgent {
             return false;
         }
 
-        return this.rng() < this.profile.retryRate;
+        const roll = this.rng();
+        const skipProbability = this.getSkipProbability();
+
+        if (roll < skipProbability) {
+            return false;
+        }
+
+        return roll < skipProbability + this.getRetryProbability();
     }
 
     getMaxRetries() {
