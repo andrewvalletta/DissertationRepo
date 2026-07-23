@@ -38,6 +38,22 @@ const RETRY_PROFILE_ENSEMBLE = {
     ],
 };
 
+const SIMULATION_TYPES = {
+    SOLO: 'solo',
+    SIMPLE_COLLAB: 'simple_collab',
+    OBS_LEARN: 'obs_learn',
+};
+
+function normalizeSimulationType(value) {
+    const normalized = String(value ?? SIMULATION_TYPES.SOLO).trim().toLowerCase();
+
+    if (Object.values(SIMULATION_TYPES).includes(normalized)) {
+        return normalized;
+    }
+
+    return SIMULATION_TYPES.SOLO;
+}
+
 function chooseProfileName(profileNames, rng) {
     if (!Array.isArray(profileNames) || profileNames.length === 0) {
         return null;
@@ -51,6 +67,7 @@ export class SimulationRunner {
     constructor(config = {}) {
         this.config = {
             taskType: config.taskType ?? 'pitch', // 'pitch' or 'tempo'
+            simulationType: normalizeSimulationType(config.simulationType),
             seed: config.seed ?? 1,
             recentTaskBuffer: config.recentTaskBuffer ?? 5,
         };
@@ -146,13 +163,14 @@ export class SimulationRunner {
         };
     }
 
-    runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy', taskType = 'pitch') {
+    runBatch(sessionCount = 100, agentProfileName = 'moderate_accuracy', taskType = 'pitch', simulationType = SIMULATION_TYPES.SOLO) {
         EventLogger.enableSimulationMode();
 
         this.config.taskType = taskType;
+        this.config.simulationType = normalizeSimulationType(simulationType);
 
         for (let i = 0; i < sessionCount; i++) {
-            console.log(`Running session ${i + 1} of ${sessionCount}`);
+            console.log(`Running session ${i + 1} of ${sessionCount} [${this.config.simulationType}]`);
             this.runSingleSession(i, agentProfileName);
         }
 
@@ -298,11 +316,7 @@ export class SimulationRunner {
                 break;
             }
 
-            const retryProfileNames = RETRY_PROFILE_ENSEMBLE[taskOwnerProfile.profileName];
-            const nextProfileName = chooseProfileName(
-                retryProfileNames?.[retryCount] ?? [taskOwnerProfile.profileName],
-                this.agent.rng
-            );
+            const nextProfileName = this.getRetryProfileName(taskOwnerProfile, retryCount);
 
             if (nextProfileName && AGENT_PROFILES[nextProfileName]) {
                 this.agent.profile = AGENT_PROFILES[nextProfileName];
@@ -310,10 +324,35 @@ export class SimulationRunner {
                 this.agent.profile = taskOwnerProfile;
             }
 
+            if (this.config.simulationType === SIMULATION_TYPES.OBS_LEARN) {
+                this.applyObservationalLearning(nextProfileName, taskOwnerProfile.profileName, retryCount);
+            }
+
             retryCount += 1;
         }
 
         this.agent.profile = taskOwnerProfile;
+    }
+
+    getRetryProfileName(taskOwnerProfile, retryCount) {
+        if (this.config.simulationType === SIMULATION_TYPES.SOLO) {
+            return taskOwnerProfile.profileName;
+        }
+
+        const retryProfileNames = RETRY_PROFILE_ENSEMBLE[taskOwnerProfile.profileName];
+
+        return chooseProfileName(
+            retryProfileNames?.[retryCount] ?? [taskOwnerProfile.profileName],
+            this.agent.rng
+        );
+    }
+
+    applyObservationalLearning(helperProfileName, ownerProfileName, retryCount) {
+        return {
+            helperProfileName,
+            ownerProfileName,
+            retryCount,
+        };
     }
 
     hasSessionEnded() {

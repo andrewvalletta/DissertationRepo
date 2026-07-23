@@ -61,9 +61,19 @@ const Home: React.FC = () => (
 
 const App: React.FC = () => {
   useEffect(() => {
-    (window as any).runSimulation = (numOfSimulations: number, agentProfileName: string, mode: string) => {
+    (window as any).runSimulation = (
+      numOfSimulations: number,
+      agentProfileName: string,
+      mode: string,
+      simulationType: string,
+    ) => {
       const simulator = new SimulationRunner();
-      simulator.runBatch(numOfSimulations || 100, agentProfileName || 'moderate_accuracy', mode || 'pitch');
+      simulator.runBatch(
+        numOfSimulations || 100,
+        agentProfileName || 'moderate_accuracy',
+        mode || 'pitch',
+        simulationType || 'solo',
+      );
     };
 
     // sessionManager.startSession();
