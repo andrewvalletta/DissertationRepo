@@ -38,6 +38,8 @@ const RETRY_PROFILE_ENSEMBLE = {
     ],
 };
 
+const PROFILE_ORDER = ['low_accuracy', 'moderate_accuracy', 'high_accuracy'];
+
 const SIMULATION_TYPES = {
     SOLO: 'solo',
     SIMPLE_COLLAB: 'simple_collab',
@@ -63,6 +65,13 @@ function chooseProfileName(profileNames, rng) {
     return profileNames[selectedIndex] ?? null;
 }
 
+function cloneProfile(profile) {
+    return {
+        ...profile,
+        responseTime: Array.isArray(profile?.responseTime) ? [...profile.responseTime] : [800, 1400],
+    };
+}
+
 export class SimulationRunner {
     constructor(config = {}) {
         this.config = {
@@ -79,6 +88,8 @@ export class SimulationRunner {
         this.currentLevel = null;
         this.currentPools = null;
         this.recentTasks = [];
+        this.sessionProfiles = {};
+        this.profileLearningState = {};
     }
 
     getTaskSpaceSize() {
@@ -190,8 +201,12 @@ export class SimulationRunner {
 
         // Create a new agent with the specified profile and seed
         const sessionSeed = this.baseSeed + sessionIndex;
-        this.profile = AGENT_PROFILES[agentProfileName] ?? AGENT_PROFILES['moderate_accuracy'];
+        this.initialProfileName = agentProfileName;
+        this.sessionProfiles = this.createSessionProfiles();
+        this.profileLearningState = this.createProfileLearningState();
+        this.profile = this.getSessionProfile(agentProfileName);
         this.agent = new SimulationAgent(this.profile, sessionSeed);
+        this.agent.profile = this.profile;
         this.recentTasks = [];
 
         // Start the session
@@ -319,13 +334,13 @@ export class SimulationRunner {
             const nextProfileName = this.getRetryProfileName(taskOwnerProfile, retryCount);
 
             if (nextProfileName && AGENT_PROFILES[nextProfileName]) {
-                this.agent.profile = AGENT_PROFILES[nextProfileName];
+                this.agent.profile = this.getSessionProfile(nextProfileName);
             } else {
                 this.agent.profile = taskOwnerProfile;
             }
 
             if (this.config.simulationType === SIMULATION_TYPES.OBS_LEARN) {
-                this.applyObservationalLearning(nextProfileName, taskOwnerProfile.profileName, retryCount);
+                this.applyObservationalLearning(taskOwnerProfile.profileName, nextProfileName);
             }
 
             retryCount += 1;
@@ -347,12 +362,120 @@ export class SimulationRunner {
         );
     }
 
-    applyObservationalLearning(helperProfileName, ownerProfileName, retryCount) {
+    createSessionProfiles() {
+        return Object.fromEntries(
+            Object.entries(AGENT_PROFILES).map(([profileName, profile]) => [profileName, cloneProfile(profile)])
+        );
+    }
+
+    createProfileLearningState() {
+        return Object.fromEntries(
+            Object.keys(AGENT_PROFILES).map((profileName) => [profileName, {
+                accuracyDelta: null,
+                responseTimeMinDelta: null,
+                responseTimeMaxDelta: null,
+            }])
+        );
+    }
+
+    getSessionProfile(profileName) {
+        if (!profileName || !this.sessionProfiles[profileName]) {
+            return this.sessionProfiles.moderate_accuracy ?? cloneProfile(AGENT_PROFILES.moderate_accuracy);
+        }
+
+        return this.sessionProfiles[profileName];
+    }
+
+    getProfileOrderIndex(profileName) {
+        return PROFILE_ORDER.indexOf(profileName);
+    }
+
+    getProfileDeltaState(profileName) {
+        return this.profileLearningState[profileName] ?? null;
+    }
+
+    getNextHigherProfileName(profileName) {
+        const index = this.getProfileOrderIndex(profileName);
+
+        if (index < 0 || index >= PROFILE_ORDER.length - 1) {
+            return null;
+        }
+
+        return PROFILE_ORDER[index + 1] ?? null;
+    }
+
+    updateLearningValue(currentValue, sourceValue, previousDelta) {
+        const nextDelta = previousDelta === null ? (sourceValue - currentValue) / 4 : previousDelta / 4;
         return {
-            helperProfileName,
-            ownerProfileName,
-            retryCount,
+            value: currentValue + nextDelta,
+            delta: nextDelta,
         };
+    }
+
+    applyProfileLearning(targetProfileName, sourceProfileName) {
+        const targetProfile = this.getSessionProfile(targetProfileName);
+        const sourceProfile = this.getSessionProfile(sourceProfileName);
+        const state = this.getProfileDeltaState(targetProfileName);
+
+        if (!targetProfile || !sourceProfile || !state) {
+            return;
+        }
+
+        const accuracyUpdate = this.updateLearningValue(
+            Number(targetProfile.accuracy) || 0,
+            Number(sourceProfile.accuracy) || 0,
+            state.accuracyDelta
+        );
+
+        const responseTimeMinUpdate = this.updateLearningValue(
+            Number(targetProfile.responseTime?.[0]) || 0,
+            Number(sourceProfile.responseTime?.[0]) || 0,
+            state.responseTimeMinDelta
+        );
+
+        const responseTimeMaxUpdate = this.updateLearningValue(
+            Number(targetProfile.responseTime?.[1]) || 0,
+            Number(sourceProfile.responseTime?.[1]) || 0,
+            state.responseTimeMaxDelta
+        );
+
+        targetProfile.accuracy = Math.min(1, Math.max(0, accuracyUpdate.value));
+        const responseTimeMin = Math.max(0, responseTimeMinUpdate.value);
+        const responseTimeMax = Math.max(responseTimeMin, responseTimeMaxUpdate.value);
+
+        targetProfile.responseTime = [responseTimeMin, responseTimeMax];
+
+        state.accuracyDelta = accuracyUpdate.delta;
+        state.responseTimeMinDelta = responseTimeMinUpdate.delta;
+        state.responseTimeMaxDelta = responseTimeMaxUpdate.delta;
+    }
+
+    applyObservationalLearning(ownerProfileName, helperProfileName) {
+        if (this.config.simulationType !== SIMULATION_TYPES.OBS_LEARN) {
+            return;
+        }
+
+        if (!ownerProfileName || !helperProfileName || ownerProfileName === helperProfileName) {
+            return;
+        }
+
+        const ownerIndex = this.getProfileOrderIndex(ownerProfileName);
+        const helperIndex = this.getProfileOrderIndex(helperProfileName);
+
+        if (ownerIndex < 0 || helperIndex < 0 || helperIndex <= ownerIndex) {
+            return;
+        }
+
+        for (let index = ownerIndex; index < helperIndex; index += 1) {
+            const targetProfileName = PROFILE_ORDER[index];
+            const sourceProfileName = PROFILE_ORDER[index + 1];
+
+            if (!targetProfileName || !sourceProfileName) {
+                continue;
+            }
+
+            this.applyProfileLearning(targetProfileName, sourceProfileName);
+        }
     }
 
     hasSessionEnded() {
