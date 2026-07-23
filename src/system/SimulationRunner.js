@@ -33,8 +33,7 @@ const RETRY_PROFILE_ENSEMBLE = {
         ['moderate_accuracy', 'high_accuracy'],
     ],
     high_accuracy: [
-        ['high_accuracy'],
-        ['high_accuracy'],
+        ['high_accuracy']
     ],
 };
 
@@ -304,7 +303,7 @@ export class SimulationRunner {
                 break;
             }
 
-            // Log the failure before deciding to retry
+            // Log the failure before deciding whether another attempt is available
             EventLogger.log({
                 eventType: SystemEvents.TASK_FAILURE,
                 taskId,
@@ -315,21 +314,6 @@ export class SimulationRunner {
                 maxRetries,
                 attemptNumber: retryCount + 1,
             });
-
-            const shouldRetry = this.agent.shouldRetry(retryCount);
-
-            if (!shouldRetry) {
-                EventLogger.log({
-                    eventType: SystemEvents.TASK_SKIP,
-                    taskId,
-                    agentProfile: this.agent.profile.profileName,
-                    reason: 'retry_declined',
-                    retryCount,
-                    maxRetries,
-                });
-
-                break;
-            }
 
             const nextProfileName = this.getRetryProfileName(taskOwnerProfile, retryCount);
 
