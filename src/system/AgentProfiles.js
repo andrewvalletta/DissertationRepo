@@ -1,7 +1,7 @@
 export const AGENT_PROFILES = {
     high_accuracy: {
         profileName: 'high_accuracy',
-        accuracy: 0.95,
+        accuracy: 0.90,
         maxRetries: 2,
         responseTime: [700, 3000]
     },
@@ -15,7 +15,7 @@ export const AGENT_PROFILES = {
 
     low_accuracy: {
         profileName: 'low_accuracy',
-        accuracy: 0.45,
+        accuracy: 0.50,
         maxRetries: 2,
         responseTime: [2000, 8000]
     },

@@ -72,6 +72,11 @@ function cloneProfile(profile) {
     };
 }
 
+function getLevelAccuracyAdjustment(level) {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(0, normalizedLevel - 1) * 0.1;
+}
+
 export class SimulationRunner {
     constructor(config = {}) {
         this.config = {
@@ -225,6 +230,7 @@ export class SimulationRunner {
         const currentLevel = EventLogger.getGamificationState().level ?? 1;
 
         this.agent.setLevel(currentLevel);
+        this.agent.profile = this.getEffectiveProfile(taskOwnerProfile.profileName, currentLevel);
 
         // Create task pools based on the current level configuration
         if (this.currentLevel !== currentLevel) {
@@ -248,10 +254,11 @@ export class SimulationRunner {
         let success = false;
         let retryCount = 0;
         const maxRetries = this.agent.getMaxRetries();
-
-        this.agent.profile = taskOwnerProfile;
+        let activeProfileName = taskOwnerProfile.profileName;
 
         while (true) {
+            this.agent.profile = this.getEffectiveProfile(activeProfileName, currentLevel);
+
             const responseTime = this.agent.getResponseTime();
             success = this.agent.attemptOutcome();
 
@@ -319,9 +326,9 @@ export class SimulationRunner {
             const nextProfileName = this.getRetryProfileName(taskOwnerProfile, retryCount);
 
             if (nextProfileName && AGENT_PROFILES[nextProfileName]) {
-                this.agent.profile = this.getSessionProfile(nextProfileName);
+                activeProfileName = nextProfileName;
             } else {
-                this.agent.profile = taskOwnerProfile;
+                activeProfileName = taskOwnerProfile.profileName;
             }
 
             if (this.config.simulationType === SIMULATION_TYPES.OBS_LEARN) {
@@ -369,6 +376,19 @@ export class SimulationRunner {
         }
 
         return this.sessionProfiles[profileName];
+    }
+
+    getEffectiveProfile(profileName, level) {
+        const profile = this.getSessionProfile(profileName);
+
+        if (!profile) {
+            return cloneProfile(AGENT_PROFILES.moderate_accuracy);
+        }
+
+        const adjustedProfile = cloneProfile(profile);
+        adjustedProfile.accuracy = Math.min(1, Math.max(0, Number(profile.accuracy) - getLevelAccuracyAdjustment(level)));
+
+        return adjustedProfile;
     }
 
     getProfileOrderIndex(profileName) {

@@ -50,6 +50,19 @@ export class SimulationAgent {
         return this.clampProbability((1 - accuracy) * 0.1, 0.01, 0.1);
     }
 
+    getDerivedResponseTimeRange() {
+        const [baseMin = 800, baseMax = 1400] = Array.isArray(this.profile.responseTime)
+            ? this.profile.responseTime
+            : [800, 1400];
+
+        const accuracy = this.getDerivedAccuracy();
+        const scale = this.clampProbability(1.3 - (accuracy * 0.6), 0.55, 1.15);
+        const min = Math.max(0, baseMin * scale);
+        const max = Math.max(min, baseMax * scale);
+
+        return [min, max];
+    }
+
     setLevel(level) {
         this.currentLevel = level ?? 1;
     }
@@ -82,7 +95,7 @@ export class SimulationAgent {
     }
 
     getResponseTime() {
-        const [min, max] = this.profile.responseTime;
+        const [min, max] = this.getDerivedResponseTimeRange();
         return Math.abs(min + this.rng() * (max - min));
     }
 }
