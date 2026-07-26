@@ -33,6 +33,7 @@ const RETRY_PROFILE_ENSEMBLE = {
         ['moderate_accuracy', 'high_accuracy'],
     ],
     high_accuracy: [
+        ['high_accuracy'],
         ['high_accuracy']
     ],
 };
