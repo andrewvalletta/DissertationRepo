@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import os
 import json
+import os
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -10,16 +11,26 @@ from typing import Sequence
 import pandas as pd
 
 
-LEVEL_COLUMNS = ("level_1", "level_2", "level_3")
-OUTPUT_COLUMNS = (*LEVEL_COLUMNS, "attempt_result")
+OUTPUT_COLUMNS = (
+    "level_t",
+    "a_t_minus_5",
+    "a_t_minus_4",
+    "a_t_minus_3",
+    "a_t_minus_2",
+    "a_t_minus_1",
+    "a_t",
+)
 
 
 @dataclass(frozen=True)
 class TrainingRow:
-    level_1: int
-    level_2: int
-    level_3: int
-    attempt_result: int
+    level_t: int
+    a_t_minus_5: int
+    a_t_minus_4: int
+    a_t_minus_3: int
+    a_t_minus_2: int
+    a_t_minus_1: int
+    a_t: int
 
 
 @dataclass(frozen=True)
@@ -49,18 +60,11 @@ DEFAULT_OUTPUT_DIR = Path(
 )
 
 
-def encode_level(level: int) -> tuple[int, int, int]:
-    """Convert a numeric level into a one-hot bit pattern.
-
-    Level 1 becomes 001, level 2 becomes 010, and level 3 becomes 100.
-    """
+def encode_level(level: int) -> int:
+    """Validate and return the classifier level value."""
     if level not in (1, 2, 3):
         raise ValueError(f"Unsupported level: {level}")
-    return (
-        1 if level == 1 else 0,
-        1 if level == 2 else 0,
-        1 if level == 3 else 0,
-    )
+    return level
 
 
 def load_events(dataset_path: Path) -> list[list[dict]]:
@@ -89,8 +93,12 @@ def extract_rows(session_events: Sequence[dict], owner_profile: str) -> list[Tra
     Only TASK_ATTEMPT and TASK_RETRY events for the owner profile are kept.
     Each row uses the level active at the time of the event and the event's
     success flag as the label.
+
+    Rows are only emitted once a session has at least five prior attempt results,
+    so the lagged history columns are always fully populated.
     """
     rows: list[TrainingRow] = []
+    recent_attempt_results: deque[int] = deque(maxlen=5)
     current_level: int | None = None
 
     for event in session_events:
@@ -108,9 +116,24 @@ def extract_rows(session_events: Sequence[dict], owner_profile: str) -> list[Tra
         if current_level is None:
             raise ValueError("Encountered task attempt before any TASK_START event")
 
-        level_bits = encode_level(current_level)
         attempt_result = 1 if bool(event.get("success")) else 0
-        rows.append(TrainingRow(*level_bits, attempt_result))
+        if len(recent_attempt_results) < 5:
+            recent_attempt_results.append(attempt_result)
+            continue
+
+        lagged_attempts = list(recent_attempt_results)
+        rows.append(
+            TrainingRow(
+                encode_level(current_level),
+                lagged_attempts[0],
+                lagged_attempts[1],
+                lagged_attempts[2],
+                lagged_attempts[3],
+                lagged_attempts[4],
+                attempt_result,
+            )
+        )
+        recent_attempt_results.append(attempt_result)
 
     return rows
 
@@ -129,10 +152,13 @@ def build_dataframe(dataset_path: Path, owner_profile: str) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
-                "level_1": row.level_1,
-                "level_2": row.level_2,
-                "level_3": row.level_3,
-                "attempt_result": row.attempt_result,
+                "level_t": row.level_t,
+                "a_t_minus_5": row.a_t_minus_5,
+                "a_t_minus_4": row.a_t_minus_4,
+                "a_t_minus_3": row.a_t_minus_3,
+                "a_t_minus_2": row.a_t_minus_2,
+                "a_t_minus_1": row.a_t_minus_1,
+                "a_t": row.a_t,
             }
             for row in rows
         ],
