@@ -1,0 +1,15 @@
+{
+  "dataset_name": "obs1000LP",
+  "source_path": "C:\\Users\\valdr\\source\\repos\\DissertationRepo\\python\\output\\obs1000LP.csv",
+  "train_rows": 23702,
+  "validation_rows": 11852,
+  "random_seed": 42,
+  "feature_columns": [
+    "level_t",
+    "a_t_minus_5",
+    "a_t_minus_4",
+    "a_t_minus_3",
+    "a_t_minus_2",
+    "a_t_minus_1"
+  ]
+}

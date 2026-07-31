@@ -1,0 +1,31 @@
+Dataset: obs1000LP
+Source: C:\Users\valdr\source\repos\DissertationRepo\python\output\obs1000LP.csv
+Training rows: 23702
+Validation rows: 11852
+
+Features: level_t, a_t_minus_5, a_t_minus_4, a_t_minus_3, a_t_minus_2, a_t_minus_1
+
+Overall metrics
+Accuracy: 0.544549
+Balanced accuracy: 0.556140
+Precision: 0.494299
+Recall: 0.668736
+F1 score: 0.568436
+MCC: 0.114322
+Cohen kappa: 0.108699
+ROC AUC: 0.579333
+Average precision: 0.512235
+Log loss: 0.682607
+Specificity: 0.443543
+Negative predictive value: 0.622103
+
+Confusion matrix
+TN=2899 FP=3637 FN=1761 TP=3555
+Matrix: [[2899, 3637], [1761, 3555]]
+
+Classification report
+class_0: precision=0.622103, recall=0.443543, f1=0.517864, support=6536.000000
+class_1: precision=0.494299, recall=0.668736, f1=0.568436, support=5316.000000
+accuracy: 0.544549
+macro avg: precision=0.558201, recall=0.556140, f1=0.543150, support=11852.000000
+weighted avg: precision=0.564779, recall=0.544549, f1=0.540547, support=11852.000000
