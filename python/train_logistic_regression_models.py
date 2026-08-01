@@ -62,6 +62,7 @@ class DatasetPaths:
 
 
 def load_dataset(csv_path: Path) -> pd.DataFrame:
+    """Load a CSV dataset and retain the original row identifiers for later traceability."""
     dataframe = pd.read_csv(csv_path)
     required_columns = FEATURE_COLUMNS + [TARGET_COLUMN]
     missing_columns = [column for column in required_columns if column not in dataframe.columns]
@@ -76,11 +77,13 @@ def load_dataset(csv_path: Path) -> pd.DataFrame:
 
 
 def shuffle_dataset(dataframe: pd.DataFrame, random_seed: int) -> pd.DataFrame:
+    """Randomly shuffle rows with a fixed seed so the split is not ordered by source sequence."""
     # Shuffle before splitting so the validation rows are not tied to source order.
     return dataframe.sample(frac=1.0, random_state=random_seed).reset_index(drop=True)
 
 
 def build_model(random_seed: int) -> Pipeline:
+    """Create a logistic regression pipeline with preprocessing and class balancing."""
     # Balanced class weights help when one class dominates the training split.
     return Pipeline(
         steps=[
@@ -100,6 +103,7 @@ def build_model(random_seed: int) -> Pipeline:
 
 
 def safe_metric(metric_name: str, y_true: pd.Series, y_proba: np.ndarray | None) -> float | None:
+    """Compute a probability-based metric only when valid probabilities are available."""
     try:
         if metric_name == "roc_auc":
             if y_proba is None:
@@ -120,6 +124,7 @@ def safe_metric(metric_name: str, y_true: pd.Series, y_proba: np.ndarray | None)
 
 
 def calculate_metrics(y_true: pd.Series, y_pred: np.ndarray, y_proba: np.ndarray | None) -> dict[str, Any]:
+    """Calculate classification metrics and confusion matrix values for the validation split."""
     confusion = confusion_matrix(y_true, y_pred, labels=[0, 1])
     tn, fp, fn, tp = (int(value) for value in confusion.ravel())
     specificity = tn / (tn + fp) if (tn + fp) else None
@@ -159,6 +164,7 @@ def calculate_metrics(y_true: pd.Series, y_pred: np.ndarray, y_proba: np.ndarray
 
 
 def to_jsonable(value: Any) -> Any:
+    """Convert numpy and other non-JSON-native values into JSON-safe Python types."""
     if isinstance(value, dict):
         return {key: to_jsonable(item) for key, item in value.items()}
     if isinstance(value, list):
@@ -173,6 +179,7 @@ def to_jsonable(value: Any) -> Any:
 
 
 def format_optional_value(value: Any) -> str:
+    """Format metric values for clean display in the text report."""
     return "n/a" if value is None else f"{value:.6f}" if isinstance(value, float) else str(value)
 
 
@@ -184,6 +191,7 @@ def build_metrics_report(
     feature_columns: list[str],
     metrics: dict[str, Any],
 ) -> str:
+    """Create a human-readable metrics report summarising model performance."""
     confusion = metrics["confusion_matrix"]
     report = metrics["classification_report"]
     lines = [
@@ -239,6 +247,7 @@ def save_dataset_artifacts(
     validation_rows: int,
     random_seed: int,
 ) -> None:
+    """Write the trained model and all evaluation outputs for one dataset to disk."""
     dataset_paths.artifact_dir.mkdir(parents=True, exist_ok=True)
 
     # Persist the fitted pipeline so the exact preprocessing and classifier can be reused later.
@@ -281,6 +290,7 @@ def train_dataset(
     validation_fraction: float,
     stratify_split: bool,
 ) -> None:
+    """Train and evaluate one logistic regression model for a single dataset."""
     dataframe = load_dataset(dataset_paths.source_path)
     shuffled = shuffle_dataset(dataframe, random_seed=random_seed)
 
@@ -337,6 +347,7 @@ def train_dataset(
 
 
 def resolve_dataset_paths(input_dir: Path, output_dir: Path) -> list[DatasetPaths]:
+    """Build the full input/output path set for each dataset to be processed."""
     return [
         DatasetPaths(
             name=dataset_name,
@@ -348,6 +359,7 @@ def resolve_dataset_paths(input_dir: Path, output_dir: Path) -> list[DatasetPath
 
 
 def main() -> None:
+    """Run the training workflow for every configured dataset from the command line."""
     parser = argparse.ArgumentParser(
         description="Train one logistic regression model per dataset and save evaluation artifacts."
     )
