@@ -410,7 +410,7 @@ export class SimulationRunner {
     }
 
     updateLearningValue(currentValue, sourceValue, previousDelta) {
-        const nextDelta = previousDelta === null ? (sourceValue - currentValue) / 4 : previousDelta / 4;
+        const nextDelta = previousDelta === null ? (sourceValue - currentValue) / 2 : previousDelta / 2;
         return {
             value: currentValue + nextDelta,
             delta: nextDelta,
