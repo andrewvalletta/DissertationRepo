@@ -13,6 +13,7 @@ import pandas as pd
 
 OUTPUT_COLUMNS = (
     "level_t",
+    "learn_cnt",
     "a_t_minus_5",
     "a_t_minus_4",
     "a_t_minus_3",
@@ -25,11 +26,12 @@ OUTPUT_COLUMNS = (
 @dataclass(frozen=True)
 class TrainingRow:
     level_t: int
-    a_t_minus_5: int
-    a_t_minus_4: int
-    a_t_minus_3: int
-    a_t_minus_2: int
-    a_t_minus_1: int
+    learn_cnt: int
+    a_t_minus_5: int | None
+    a_t_minus_4: int | None
+    a_t_minus_3: int | None
+    a_t_minus_2: int | None
+    a_t_minus_1: int | None
     a_t: int
 
 
@@ -46,12 +48,19 @@ OWNER_BY_DATASET = {
     "obs1000MP": "moderate_accuracy",
 }
 
+PROFILE_ORDER = (
+    "low_accuracy",
+    "moderate_accuracy",
+    "high_accuracy",
+)
+
 DEFAULT_INPUT_DIR = Path(
     os.environ.get(
         "TRAINING_DATA_INPUT_DIR",
         r"C:\Users\valdr\OneDrive - Malta College of Arts, Science & Technology\Desktop\Lvl6\Dissertation\Datasets",
     )
 )
+
 DEFAULT_OUTPUT_DIR = Path(
     os.environ.get(
         "TRAINING_DATA_OUTPUT_DIR",
@@ -65,6 +74,14 @@ def encode_level(level: int) -> int:
     if level not in (1, 2, 3):
         raise ValueError(f"Unsupported level: {level}")
     return level
+
+
+def get_profile_order_index(profile_name: str) -> int:
+    """Return the rank of a profile within the learning hierarchy."""
+    try:
+        return PROFILE_ORDER.index(profile_name)
+    except ValueError:
+        return -1
 
 
 def load_events(dataset_path: Path) -> list[list[dict]]:
@@ -94,12 +111,16 @@ def extract_rows(session_events: Sequence[dict], owner_profile: str) -> list[Tra
     Each row uses the level active at the time of the event and the event's
     success flag as the label.
 
-    Rows are only emitted once a session has at least five prior attempt results,
-    so the lagged history columns are always fully populated.
+    The first five owner rows are kept even when the lagged history is not yet
+    populated; missing history values are written as blanks in the CSV. learn_cnt
+    tracks how many successful retry completions have been achieved by a higher-
+    ranked agent in the same session.
     """
     rows: list[TrainingRow] = []
     recent_attempt_results: deque[int] = deque(maxlen=5)
     current_level: int | None = None
+    learn_cnt = 0
+    owner_profile_index = get_profile_order_index(owner_profile)
 
     for event in session_events:
         event_type = event.get("eventType")
@@ -107,29 +128,36 @@ def extract_rows(session_events: Sequence[dict], owner_profile: str) -> list[Tra
             current_level = int(event["level"])
             continue
 
+        event_profile = event.get("agentProfile")
+
+        if (
+            event_type == "TASK_RETRY"
+            and bool(event.get("success"))
+            and get_profile_order_index(str(event_profile)) > owner_profile_index
+        ):
+            learn_cnt += 1
+
         if event_type not in {"TASK_ATTEMPT", "TASK_RETRY"}:
             continue
 
-        if event.get("agentProfile") != owner_profile:
+        if event_profile != owner_profile:
             continue
 
         if current_level is None:
             raise ValueError("Encountered task attempt before any TASK_START event")
 
         attempt_result = 1 if bool(event.get("success")) else 0
-        if len(recent_attempt_results) < 5:
-            recent_attempt_results.append(attempt_result)
-            continue
-
         lagged_attempts = list(recent_attempt_results)
+        padded_history = [None] * (5 - len(lagged_attempts)) + lagged_attempts
         rows.append(
             TrainingRow(
                 encode_level(current_level),
-                lagged_attempts[0],
-                lagged_attempts[1],
-                lagged_attempts[2],
-                lagged_attempts[3],
-                lagged_attempts[4],
+                learn_cnt,
+                padded_history[0],
+                padded_history[1],
+                padded_history[2],
+                padded_history[3],
+                padded_history[4],
                 attempt_result,
             )
         )
@@ -153,6 +181,7 @@ def build_dataframe(dataset_path: Path, owner_profile: str) -> pd.DataFrame:
         [
             {
                 "level_t": row.level_t,
+                "learn_cnt": row.learn_cnt,
                 "a_t_minus_5": row.a_t_minus_5,
                 "a_t_minus_4": row.a_t_minus_4,
                 "a_t_minus_3": row.a_t_minus_3,
