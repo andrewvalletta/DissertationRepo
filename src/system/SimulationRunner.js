@@ -589,7 +589,14 @@ export class SimulationRunner {
                 currentLevel,
         });
 
-        let success = false;
+        /*
+         * retryCount is the number of retries that have ALREADY
+         * been performed.
+         *
+         * 0 = original attempt only
+         * 1 = first retry has completed
+         * 2 = second retry has completed
+         */
         let retryCount = 0;
 
         const maxRetries =
@@ -598,88 +605,29 @@ export class SimulationRunner {
         let activeProfileName =
             taskOwnerProfile.profileName;
 
+        /*
+         * The first pass through the loop is always the original
+         * attempt. Subsequent passes are retries.
+         */
+        let isRetry = false;
+
         while (true) {
-            this.agent.profile =
-                this.getEffectiveProfile(
-                    activeProfileName,
-                    currentLevel
-                );
-
-            const responseTime =
-                this.agent.getResponseTime();
-
-            success =
-                this.agent.attemptOutcome();
-
             /*
-             * First attempt = TASK_ATTEMPT.
-             * Subsequent attempts = TASK_RETRY.
+             * -----------------------------------------------------------
+             * BEFORE STARTING A RETRY
+             * -----------------------------------------------------------
+             *
+             * This check happens BEFORE the retry starts.
+             *
+             * If retryCount === maxRetries, all permitted retries
+             * have already happened and another retry cannot start.
+             *
+             * The original attempt is not subject to this check.
              */
-            EventLogger.log({
-                eventType:
-                    retryCount === 0
-                        ? SystemEvents.TASK_ATTEMPT
-                        : SystemEvents.TASK_RETRY,
-
-                taskId,
-
-                agentProfile:
-                    this.agent.profile.profileName,
-
-                success,
-
-                responseTime,
-
-                retryCount,
-            });
-
-            if (success) {
-                EventLogger.log({
-                    eventType:
-                        SystemEvents.TASK_SUCCESS,
-
-                    taskId,
-
-                    agentProfile:
-                        this.agent.profile.profileName,
-
-                    responseTime,
-
-                    retryCount,
-                });
-
-                break;
-            }
-
-            const retryable =
-                retryCount <
-                maxRetries;
-
-            /*
-             * Retries exhausted.
-             */
-            if (!retryable) {
-                EventLogger.log({
-                    eventType:
-                        SystemEvents.TASK_FAILURE,
-
-                    taskId,
-
-                    agentProfile:
-                        this.agent.profile.profileName,
-
-                    responseTime,
-
-                    retryable,
-
-                    retryCount,
-
-                    maxRetries,
-
-                    attemptNumber:
-                        retryCount + 1,
-                });
-
+            if (
+                isRetry &&
+                retryCount >= maxRetries
+            ) {
                 EventLogger.log({
                     eventType:
                         SystemEvents.TASK_SKIP,
@@ -701,9 +649,123 @@ export class SimulationRunner {
             }
 
             /*
-             * Log failure before deciding whether another attempt
-             * is available.
+             * -----------------------------------------------------------
+             * PREPARE CURRENT AGENT
+             * -----------------------------------------------------------
              */
+            this.agent.profile =
+                this.getEffectiveProfile(
+                    activeProfileName,
+                    currentLevel
+                );
+
+            const responseTime =
+                this.agent.getResponseTime();
+
+            /*
+             * -----------------------------------------------------------
+             * PERFORM THE ATTEMPT
+             * -----------------------------------------------------------
+             */
+            const success =
+                this.agent.attemptOutcome();
+
+            /*
+             * For the original attempt:
+             *
+             *     retryCount = 0
+             *
+             * For a retry:
+             *
+             *     currentRetryCount = retryCount + 1
+             *
+             * This is deliberately NOT assigned back to retryCount
+             * until after the retry outcome has been registered.
+             */
+            const currentRetryCount =
+                isRetry
+                    ? retryCount + 1
+                    : 0;
+
+            /*
+             * -----------------------------------------------------------
+             * REGISTER THE ATTEMPT / RETRY
+             * -----------------------------------------------------------
+             *
+             * The first attempt is TASK_ATTEMPT.
+             *
+             * Every subsequent attempt is TASK_RETRY.
+             */
+            EventLogger.log({
+                eventType:
+                    isRetry
+                        ? SystemEvents.TASK_RETRY
+                        : SystemEvents.TASK_ATTEMPT,
+
+                taskId,
+
+                agentProfile:
+                    this.agent.profile.profileName,
+
+                success,
+
+                responseTime,
+
+                retryCount:
+                    currentRetryCount,
+            });
+
+            /*
+             * -----------------------------------------------------------
+             * RETRY HAS NOW HAPPENED
+             * -----------------------------------------------------------
+             *
+             * Only NOW do we update retryCount.
+             *
+             * Therefore retryCount always represents retries that have
+             * actually occurred, never a retry that is merely planned.
+             */
+            if (isRetry) {
+                retryCount =
+                    currentRetryCount;
+            }
+
+            /*
+             * -----------------------------------------------------------
+             * SUCCESS
+             * -----------------------------------------------------------
+             */
+            if (success) {
+                EventLogger.log({
+                    eventType:
+                        SystemEvents.TASK_SUCCESS,
+
+                    taskId,
+
+                    agentProfile:
+                        this.agent.profile.profileName,
+
+                    responseTime,
+
+                    retryCount:
+                        currentRetryCount,
+                });
+
+                break;
+            }
+
+            /*
+             * -----------------------------------------------------------
+             * FAILED ATTEMPT
+             * -----------------------------------------------------------
+             *
+             * At this point retryCount accurately represents the number
+             * of retries that have actually happened.
+             */
+            const retryable =
+                retryCount <
+                maxRetries;
+
             EventLogger.log({
                 eventType:
                     SystemEvents.TASK_FAILURE,
@@ -725,6 +787,61 @@ export class SimulationRunner {
                     retryCount + 1,
             });
 
+            /*
+             * -----------------------------------------------------------
+             * RETRIES EXHAUSTED
+             * -----------------------------------------------------------
+             *
+             * For example:
+             *
+             * retryCount = 2
+             * maxRetries = 2
+             *
+             * Therefore:
+             *
+             * 2 < 2 === false
+             *
+             * No further retry can begin.
+             */
+            if (!retryable) {
+                EventLogger.log({
+                    eventType:
+                        SystemEvents.TASK_SKIP,
+
+                    taskId,
+
+                    agentProfile:
+                        this.agent.profile.profileName,
+
+                    reason:
+                        'retry_exhausted',
+
+                    retryCount,
+
+                    maxRetries,
+                });
+
+                break;
+            }
+
+            /*
+             * -----------------------------------------------------------
+             * PREPARE NEXT RETRY
+             * -----------------------------------------------------------
+             *
+             * IMPORTANT:
+             *
+             * retryCount is NOT incremented here.
+             *
+             * It currently represents the number of retries that have
+             * actually happened.
+             *
+             * The next retry will use:
+             *
+             *     retryCount + 1
+             *
+             * as its event retry number.
+             */
             const nextProfileName =
                 this.getRetryProfileName(
                     taskOwnerProfile,
@@ -744,6 +861,9 @@ export class SimulationRunner {
                     taskOwnerProfile.profileName;
             }
 
+            /*
+             * Learning algorithm deliberately unchanged.
+             */
             if (
                 this.config.simulationType ===
                 SIMULATION_TYPES.OBS_LEARN
@@ -754,7 +874,13 @@ export class SimulationRunner {
                 );
             }
 
-            retryCount += 1;
+            /*
+             * The next loop iteration is now a retry.
+             *
+             * The retryCount itself remains unchanged until that retry
+             * has actually been performed and its outcome registered.
+             */
+            isRetry = true;
         }
 
         this.agent.profile =
@@ -925,6 +1051,21 @@ export class SimulationRunner {
     }
 
 
+    /*
+     * ---------------------------------------------------------------
+     * LEARNING
+     * ---------------------------------------------------------------
+     *
+     * UNCHANGED.
+     *
+     * The learning algorithm intentionally uses:
+     *
+     * First instance:
+     *     (sourceValue - currentValue) / 2
+     *
+     * Subsequent instances:
+     *     previousDelta / 2
+     */
     updateLearningValue(
         currentValue,
         sourceValue,
