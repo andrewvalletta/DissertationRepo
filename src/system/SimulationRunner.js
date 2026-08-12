@@ -666,6 +666,18 @@ export class SimulationRunner {
              * -----------------------------------------------------------
              * PERFORM THE ATTEMPT
              * -----------------------------------------------------------
+             *
+             * IMPORTANT:
+             *
+             * The outcome is generated BEFORE any learning can occur.
+             *
+             * This is essential for the learning model:
+             *
+             *     helper succeeds
+             *          ↓
+             *     learning is applied
+             *
+             * A failed helper retry therefore NEVER causes learning.
              */
             const success =
                 this.agent.attemptOutcome();
@@ -678,9 +690,6 @@ export class SimulationRunner {
              * For a retry:
              *
              *     currentRetryCount = retryCount + 1
-             *
-             * This is deliberately NOT assigned back to retryCount
-             * until after the retry outcome has been registered.
              */
             const currentRetryCount =
                 isRetry
@@ -691,10 +700,6 @@ export class SimulationRunner {
              * -----------------------------------------------------------
              * REGISTER THE ATTEMPT / RETRY
              * -----------------------------------------------------------
-             *
-             * The first attempt is TASK_ATTEMPT.
-             *
-             * Every subsequent attempt is TASK_RETRY.
              */
             EventLogger.log({
                 eventType:
@@ -719,11 +724,6 @@ export class SimulationRunner {
              * -----------------------------------------------------------
              * RETRY HAS NOW HAPPENED
              * -----------------------------------------------------------
-             *
-             * Only NOW do we update retryCount.
-             *
-             * Therefore retryCount always represents retries that have
-             * actually occurred, never a retry that is merely planned.
              */
             if (isRetry) {
                 retryCount =
@@ -734,6 +734,23 @@ export class SimulationRunner {
              * -----------------------------------------------------------
              * SUCCESS
              * -----------------------------------------------------------
+             *
+             * IMPORTANT LEARNING RULE:
+             *
+             * A higher-ranked agent only teaches the owner when that
+             * higher-ranked agent actually succeeds on the retry.
+             *
+             * Learning is therefore deliberately applied HERE,
+             * AFTER attemptOutcome() has returned true.
+             *
+             * This means:
+             *
+             *     failed helper retry → NO learning
+             *     successful helper retry → LEARNING
+             *
+             * The learning event also occurs after TASK_RETRY has been
+             * logged, so the training-data builder can correctly count
+             * the successful higher-ranked retry.
              */
             if (success) {
                 EventLogger.log({
@@ -750,6 +767,50 @@ export class SimulationRunner {
                     retryCount:
                         currentRetryCount,
                 });
+
+                /*
+                 * -------------------------------------------------------
+                 * SUCCESSFUL HIGHER-RANKED RETRY → LEARNING
+                 * -------------------------------------------------------
+                 *
+                 * Only a retry performed by a profile higher in the
+                 * hierarchy can produce observational learning.
+                 *
+                 * applyObservationalLearning() already validates:
+                 *
+                 *     - simulation type is OBS_LEARN
+                 *     - both profiles exist
+                 *     - owner != helper
+                 *     - helper is ranked higher
+                 *
+                 * Therefore this call is safe for all successful
+                 * attempts, including the original low-agent attempt.
+                 */
+                if (
+                    isRetry &&
+                    this.config.simulationType ===
+                    SIMULATION_TYPES.OBS_LEARN
+                ) {
+                    const ownerIndex =
+                        this.getProfileOrderIndex(
+                            taskOwnerProfile.profileName
+                        );
+
+                    const helperIndex =
+                        this.getProfileOrderIndex(
+                            activeProfileName
+                        );
+
+                    if (
+                        ownerIndex >= 0 &&
+                        helperIndex > ownerIndex
+                    ) {
+                        this.applyObservationalLearning(
+                            taskOwnerProfile.profileName,
+                            activeProfileName
+                        );
+                    }
+                }
 
                 break;
             }
@@ -791,17 +852,6 @@ export class SimulationRunner {
              * -----------------------------------------------------------
              * RETRIES EXHAUSTED
              * -----------------------------------------------------------
-             *
-             * For example:
-             *
-             * retryCount = 2
-             * maxRetries = 2
-             *
-             * Therefore:
-             *
-             * 2 < 2 === false
-             *
-             * No further retry can begin.
              */
             if (!retryable) {
                 EventLogger.log({
@@ -831,16 +881,12 @@ export class SimulationRunner {
              *
              * IMPORTANT:
              *
-             * retryCount is NOT incremented here.
+             * There is NO learning here.
              *
-             * It currently represents the number of retries that have
-             * actually happened.
+             * Merely selecting a higher-ranked helper does not teach
+             * the owner.
              *
-             * The next retry will use:
-             *
-             *     retryCount + 1
-             *
-             * as its event retry number.
+             * The helper must successfully answer the retry first.
              */
             const nextProfileName =
                 this.getRetryProfileName(
@@ -862,27 +908,17 @@ export class SimulationRunner {
             }
 
             /*
-             * Learning algorithm deliberately unchanged.
-             */
-            if (
-                this.config.simulationType ===
-                SIMULATION_TYPES.OBS_LEARN
-            ) {
-                this.applyObservationalLearning(
-                    taskOwnerProfile.profileName,
-                    nextProfileName
-                );
-            }
-
-            /*
              * The next loop iteration is now a retry.
              *
-             * The retryCount itself remains unchanged until that retry
-             * has actually been performed and its outcome registered.
+             * retryCount remains unchanged until that retry has actually
+             * been performed.
              */
             isRetry = true;
         }
 
+        /*
+         * Restore the task owner's base session profile reference.
+         */
         this.agent.profile =
             taskOwnerProfile;
     }
