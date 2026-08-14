@@ -46,7 +46,8 @@ OWNER_BY_DATASET = {
     # "1000HighPitch": "high_accuracy",
     # "obs1000LP": "low_accuracy",
     # "obs1000MP": "moderate_accuracy",
-    "obs100000LP": "low_accuracy",
+    # "obs100000LP": "low_accuracy",
+    "obs100000MP": "moderate_accuracy",
 }
 
 PROFILE_ORDER = (
