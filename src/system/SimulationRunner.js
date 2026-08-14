@@ -1096,11 +1096,28 @@ export class SimulationRunner {
      *
      * The learning algorithm intentionally uses:
      *
-     * First instance:
-     *     (sourceValue - currentValue) / 2
+     * First learning instance for this target profile:
+     *     increment = (sourceValue - currentValue) / 2
      *
-     * Subsequent instances:
-     *     previousDelta / 2
+     * Every following learning instance for that same target profile:
+     *     increment = previousIncrement / 2
+     *
+     * In other words, the increment computed on the first successful
+     * higher-ranked retry is SAVED (as state.accuracyDelta / etc.),
+     * and each subsequent successful higher-ranked retry simply
+     * halves that saved increment again rather than recomputing it
+     * from the live gap between target and source.
+     *
+     * Combined with applyObservationalLearning() below, this means:
+     *
+     *     - the low profile's difference is calculated against the
+     *       MODERATE profile (never directly against high), and
+     *     - the moderate profile's difference is calculated against
+     *       the HIGH profile,
+     *
+     * so a successful high-agent retry for a low-agent owner still
+     * only ever nudges low toward moderate (and moderate toward
+     * high) one link of the chain at a time.
      */
     updateLearningValue(
         currentValue,
@@ -1268,6 +1285,25 @@ export class SimulationRunner {
             return;
         }
 
+        /*
+         * Walk the chain one profile-pair at a time rather than
+         * jumping straight from the owner to the successful helper.
+         *
+         * Example: a high-agent retry succeeding for a low-agent
+         * owner does NOT compute low's difference against high.
+         * Instead it walks low_accuracy -> moderate_accuracy ->
+         * high_accuracy, so:
+         *
+         *     - low_accuracy's difference is calculated against
+         *       moderate_accuracy, and
+         *     - moderate_accuracy's difference is calculated
+         *       against high_accuracy.
+         *
+         * Each of those calls goes through applyProfileLearning() /
+         * updateLearningValue(), which is what actually applies the
+         * "first instance vs. saved-and-halved increment" rule
+         * described above.
+         */
         for (
             let index = ownerIndex;
             index < helperIndex;
