@@ -8,4 +8,6 @@ export const SystemEvents = {
     TASK_SUCCESS: 'TASK_SUCCESS',
     TASK_FAILURE: 'TASK_FAILURE',
     TASK_SKIP: 'TASK_SKIP',
+
+    LEVEL_UP: 'LEVEL_UP',
 };

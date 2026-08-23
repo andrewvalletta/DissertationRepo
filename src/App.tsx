@@ -136,6 +136,9 @@ const App: React.FC = () => {
      *     'pitch',
      *     'solo'
      * )
+     *
+     * Valid simulationType values: 'solo', 'simple_collab',
+     * 'obs_learn', 'ml_level_up'.
      */
     (window as any).runSimulation =
       async (

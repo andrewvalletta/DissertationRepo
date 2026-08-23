@@ -5,6 +5,7 @@ import { SimulationAgent } from "./SimulationAgent";
 import { AGENT_PROFILES } from "./AgentProfiles";
 import { TaskFactory } from "./TaskFactory";
 import { LEVEL_CONFIG } from "./LevelConfig";
+import { getPredictedSuccessRate } from "./MLSuccessModel";
 
 
 function shuffle(array, rng) {
@@ -58,7 +59,64 @@ const SIMULATION_TYPES = {
     SOLO: 'solo',
     SIMPLE_COLLAB: 'simple_collab',
     OBS_LEARN: 'obs_learn',
+    ML_LEVEL_UP: 'ml_level_up',
 };
+
+
+/*
+ * ---------------------------------------------------------------
+ * ML-DRIVEN LEVEL-UP CONFIG
+ * ---------------------------------------------------------------
+ *
+ * Under SIMULATION_TYPES.ML_LEVEL_UP, level progression is no longer
+ * XP-based (GamificationEngine). Instead, after every task:
+ *
+ *     - the low agent's predicted accuracy is looked up from the
+ *       trained model (getPredictedSuccessRate, keyed by the
+ *       current level and the session's cumulative learn_cnt);
+ *
+ *     - if that predicted accuracy is within ML_LEVEL_UP_MARGIN of
+ *       the moderate agent's level-adjusted baseline accuracy, the
+ *       agent advances immediately;
+ *
+ *     - otherwise, once ML_MAX_ATTEMPTS_PER_LEVEL tasks have been
+ *       done at the current level, the agent advances regardless.
+ *
+ * Reaching either condition while already at ML_MAX_LEVEL ends the
+ * session (a "win" if triggered by the accuracy threshold, or
+ * "completed" if triggered by the attempt cap).
+ */
+const ML_LEVEL_UP_MARGIN = 0.05;
+const ML_MAX_ATTEMPTS_PER_LEVEL = 10;
+const ML_MAX_LEVEL = 3;
+
+
+function getModerateBaselineAccuracy(level) {
+    const baseAccuracy =
+        AGENT_PROFILES.moderate_accuracy?.accuracy ?? 0.7;
+
+    return Math.min(
+        1,
+        Math.max(
+            0,
+            baseAccuracy -
+            getLevelAccuracyAdjustment(level)
+        )
+    );
+}
+
+
+function getMlLevelUpThreshold(level) {
+    const rawThreshold =
+        getModerateBaselineAccuracy(level) -
+        ML_LEVEL_UP_MARGIN;
+
+    /*
+     * Round away floating-point noise (e.g. 0.7 - 0.05 producing
+     * 0.6499999999999999) so exported threshold values stay clean.
+     */
+    return Math.round(rawThreshold * 1e6) / 1e6;
+}
 
 
 function normalizeSimulationType(value) {
@@ -506,6 +564,13 @@ export class SimulationRunner {
 
         this.recentTasks = [];
 
+        this.sessionLearnCount = 0;
+
+        this.mlProgressionState = {
+            level: 1,
+            attemptsInLevel: 0,
+        };
+
         /*
          * Start session.
          */
@@ -535,9 +600,14 @@ export class SimulationRunner {
             this.agent.profile;
 
         const currentLevel =
-            EventLogger
-                .getGamificationState()
-                .level ?? 1;
+            this.config.simulationType ===
+                SIMULATION_TYPES.ML_LEVEL_UP
+                ? this.mlProgressionState.level
+                : (
+                    EventLogger
+                        .getGamificationState()
+                        .level ?? 1
+                );
 
         this.agent.setLevel(
             currentLevel
@@ -587,6 +657,9 @@ export class SimulationRunner {
 
             level:
                 currentLevel,
+
+            learnCount:
+                this.sessionLearnCount,
         });
 
         /*
@@ -788,8 +861,7 @@ export class SimulationRunner {
                  */
                 if (
                     isRetry &&
-                    this.config.simulationType ===
-                    SIMULATION_TYPES.OBS_LEARN
+                    this.isObservationalLearningActive()
                 ) {
                     const ownerIndex =
                         this.getProfileOrderIndex(
@@ -921,6 +993,18 @@ export class SimulationRunner {
          */
         this.agent.profile =
             taskOwnerProfile;
+
+        /*
+         * Under ML_LEVEL_UP, the level-up/session-end check happens
+         * after every task, using the model's predicted accuracy for
+         * the current (level, learn_cnt) state.
+         */
+        if (
+            this.config.simulationType ===
+            SIMULATION_TYPES.ML_LEVEL_UP
+        ) {
+            this.evaluateMlProgression();
+        }
     }
 
 
@@ -1251,10 +1335,7 @@ export class SimulationRunner {
         ownerProfileName,
         helperProfileName
     ) {
-        if (
-            this.config.simulationType !==
-            SIMULATION_TYPES.OBS_LEARN
-        ) {
+        if (!this.isObservationalLearningActive()) {
             return;
         }
 
@@ -1284,6 +1365,14 @@ export class SimulationRunner {
         ) {
             return;
         }
+
+        /*
+         * learn_cnt counts successful higher-ranked helper retries
+         * for this session (once per retry event, not once per link
+         * in the profile chain walked below).
+         */
+        this.sessionLearnCount =
+            (this.sessionLearnCount ?? 0) + 1;
 
         /*
          * Walk the chain one profile-pair at a time rather than
@@ -1330,7 +1419,132 @@ export class SimulationRunner {
     }
 
 
+    isObservationalLearningActive() {
+        return (
+            this.config.simulationType === SIMULATION_TYPES.OBS_LEARN ||
+            this.config.simulationType === SIMULATION_TYPES.ML_LEVEL_UP
+        );
+    }
+
+
+    /*
+     * ---------------------------------------------------------------
+     * ML-DRIVEN LEVEL PROGRESSION
+     * ---------------------------------------------------------------
+     *
+     * Called once per completed task (i.e. once per simulateTask()
+     * call, after all of its retries have resolved) when
+     * simulationType === ML_LEVEL_UP.
+     */
+    evaluateMlProgression() {
+        const state =
+            this.mlProgressionState;
+
+        state.attemptsInLevel += 1;
+
+        const predictedAccuracy =
+            getPredictedSuccessRate(
+                state.level,
+                this.sessionLearnCount
+            );
+
+        const threshold =
+            getMlLevelUpThreshold(
+                state.level
+            );
+
+        const readyByAccuracy =
+            predictedAccuracy >= threshold;
+
+        const readyByAttemptCap =
+            state.attemptsInLevel >=
+            ML_MAX_ATTEMPTS_PER_LEVEL;
+
+        if (
+            !readyByAccuracy &&
+            !readyByAttemptCap
+        ) {
+            return;
+        }
+
+        const reason =
+            readyByAccuracy
+                ? 'accuracy_threshold'
+                : 'attempt_cap';
+
+        /*
+         * Already at the max level: end the session instead of
+         * advancing further.
+         */
+        if (state.level >= ML_MAX_LEVEL) {
+            EventLogger.logSessionEnd({
+                finalLevel:
+                    state.level,
+
+                outcome:
+                    readyByAccuracy
+                        ? 'win'
+                        : 'completed',
+
+                reason,
+
+                learnCount:
+                    this.sessionLearnCount,
+
+                attemptsInLevel:
+                    state.attemptsInLevel,
+
+                predictedAccuracy,
+
+                threshold,
+            });
+
+            sessionManager.endSession(false);
+
+            return;
+        }
+
+        EventLogger.log({
+            eventType:
+                SystemEvents.LEVEL_UP,
+
+            fromLevel:
+                state.level,
+
+            toLevel:
+                state.level + 1,
+
+            reason,
+
+            learnCount:
+                this.sessionLearnCount,
+
+            attemptsInLevel:
+                state.attemptsInLevel,
+
+            predictedAccuracy,
+
+            threshold,
+        });
+
+        state.level += 1;
+        state.attemptsInLevel = 0;
+    }
+
+
     hasSessionEnded() {
+        if (
+            this.config.simulationType ===
+            SIMULATION_TYPES.ML_LEVEL_UP
+        ) {
+            /*
+             * Progression/session-end is fully self-managed by
+             * evaluateMlProgression() for this type; GamificationEngine's
+             * XP-based progressDelta cap is not used as an end trigger.
+             */
+            return !sessionManager.getSessionId();
+        }
+
         const state =
             EventLogger.getGamificationState();
 
